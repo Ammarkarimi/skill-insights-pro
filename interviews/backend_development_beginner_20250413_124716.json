@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-04-13T12:47:16.580264",
+  "topic": "Backend Development",
+  "difficulty": "beginner",
+  "num_questions": 4,
+  "answers": [
+    {
+      "question": "Explain the difference between a REST API and a GraphQL API.  Provide examples of when you might choose one over the other.",
+      "expectedAnswer": "REST APIs use a resource-based architecture, typically utilizing HTTP methods (GET, POST, PUT, DELETE) to interact with resources identified by URLs.  They often return fixed data structures.  GraphQL, on the other hand, allows clients to request specific data fields, reducing over-fetching and under-fetching.  \n\nFor example, if you were building a blog, a REST API might have separate endpoints for `/posts`, `/posts/{id}`, `/comments`, `/comments/{id}` etc.  A GraphQL API would allow a client to request just the post title, author, and first three comments with a single query. \n\nYou would choose REST for simpler applications where fixed data structures are sufficient and ease of implementation is prioritized. GraphQL is better suited for complex applications with varying data needs and where minimizing network traffic is crucial.",
+      "userAnswer": "Hi. Hello. Bye."
+    },
+    {
+      "question": "What is the purpose of a database in a backend system, and what are some common types of databases used?",
+      "expectedAnswer": "A database is a structured set of data organized and accessed electronically.  In a backend system, it's crucial for storing and retrieving persistent data.  The choice of database depends on the application's needs.\n\nCommon types include:\n* **Relational Databases (SQL):**  Like MySQL, PostgreSQL, and SQL Server.  They organize data into tables with rows and columns, enforcing relationships between tables.  They are good for structured data and ACID properties (Atomicity, Consistency, Isolation, Durability).\n* **NoSQL Databases:**  Like MongoDB, Cassandra, and Redis.  They offer more flexible schema designs, better scalability for large datasets, and often faster performance for specific use cases.  They are suitable for unstructured or semi-structured data, like JSON documents.",
+      "userAnswer": "My husband. Hi. Hello. Bye."
+    },
+    {
+      "question": "Describe the concept of 'CRUD' operations in the context of backend development.",
+      "expectedAnswer": "CRUD is an acronym for Create, Read, Update, and Delete. These are the four basic operations performed on data in a database (or other data store) by a backend system. \n\n* **Create:** Adding new data to the database.\n* **Read:** Retrieving existing data from the database.\n* **Update:** Modifying existing data in the database.\n* **Delete:** Removing data from the database. \nMost backend applications will implement these four fundamental operations to manage their data.",
+      "userAnswer": "Viraj."
+    },
+    {
+      "question": "What is an API endpoint, and how does it work in a typical request-response cycle?",
+      "expectedAnswer": "An API endpoint is a specific URI (Uniform Resource Identifier) that an application uses to access a specific function or resource of an API. Think of it as the address for a particular piece of data or functionality offered by the backend. \n\nIn a typical request-response cycle:\n1. A client (e.g., a web browser or mobile app) sends an HTTP request (GET, POST, PUT, DELETE) to a specific endpoint.\n2. The backend server receives the request and processes it according to the defined logic.\n3. The server then sends an HTTP response back to the client. This response contains the requested data or a status code indicating success or failure.",
+      "userAnswer": "Hello. Hi. Bye."
+    }
+  ]
+}

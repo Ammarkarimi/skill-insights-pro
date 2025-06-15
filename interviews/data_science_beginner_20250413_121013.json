@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-04-13T12:10:13.175047",
+  "topic": "Data Science",
+  "difficulty": "beginner",
+  "num_questions": 4,
+  "answers": [
+    {
+      "question": "Explain the difference between supervised and unsupervised learning in the context of data science.  Provide an example of each.",
+      "ExpectedAnswer": "Supervised learning uses labeled data, meaning the data includes both input features and the corresponding output or target variable.  The algorithm learns to map inputs to outputs based on this labeled data.  An example is predicting house prices (output) based on features like size, location, and number of bedrooms (inputs).  Unsupervised learning, on the other hand, uses unlabeled data, where the target variable is not provided. The algorithm aims to discover patterns, structures, or relationships within the data.  An example is customer segmentation, where you might group customers based on their purchasing behavior without knowing beforehand what the groups should be.",
+      "answer": "I don't know the answer."
+    },
+    {
+      "question": "What is the bias-variance tradeoff?  Explain it with a simple example.",
+      "ExpectedAnswer": "The bias-variance tradeoff describes the balance between a model's ability to fit the training data (low bias, high variance) and its ability to generalize to unseen data (low variance, high bias).  High bias means the model is too simple and underfits the data, missing important relationships. High variance means the model is too complex and overfits the data, learning the noise in the training set rather than the underlying patterns. A simple example:  Imagine predicting a straight line through a set of data points that actually follow a slightly curved pattern. A highly biased model might fit a completely horizontal line (underfitting), while a high variance model might fit a very complex, wiggly line that perfectly passes through all the points but will perform poorly on new data (overfitting).  The ideal model strikes a balance between these extremes.",
+      "answer": "I don't know the answer."
+    },
+    {
+      "question": "Describe the difference between accuracy and precision in the context of classification models.  When might you prioritize one over the other?",
+      "ExpectedAnswer": "Accuracy measures the overall correctness of a classification model \u2013 the proportion of correctly classified instances out of the total instances. Precision, on the other hand, focuses on the correctness of positive predictions \u2013 the proportion of correctly predicted positive instances out of all instances predicted as positive.  For example, in a spam detection system, high accuracy is desirable overall. However, if the cost of incorrectly identifying a non-spam email as spam (false positive) is high (e.g., missing an important email), you might prioritize precision to minimize false positives, even if it means slightly lower overall accuracy.  Conversely, if the cost of missing spam emails (false negative) is high (e.g., security risk), you might prioritize recall (which is related to the sensitivity or true positive rate) at the expense of precision.",
+      "answer": "I do not know the answer."
+    },
+    {
+      "question": "What are some common data preprocessing steps you might perform before applying a machine learning algorithm? Why are these steps necessary?",
+      "ExpectedAnswer": "Common data preprocessing steps include: handling missing values (imputation or removal), data cleaning (removing inconsistencies or outliers), feature scaling (standardization or normalization), and encoding categorical variables (one-hot encoding or label encoding). These steps are necessary because many machine learning algorithms are sensitive to the scale and format of the input data.  Missing values can bias the results or cause errors. Outliers can skew the model.  Different scales of features can lead to some features dominating others in algorithms like distance-based methods. Categorical variables need to be converted into numerical representations to be used by most algorithms.  Preprocessing improves the quality of data, increases model accuracy, and ensures the algorithm can function properly.",
+      "answer": "I don't know the answer."
+    }
+  ]
+}
