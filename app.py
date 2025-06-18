@@ -1621,7 +1621,123 @@ def get_interview_details(filename):
         }), 500
 
 
+import requests
+from collections import Counter
+from datetime import datetime, timedelta
+import logging
+from flask import Flask, request, jsonify
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Adzuna API credentials (move to .env in production)
+APP_ID = "75bc9839"
+APP_KEY = "222236e64d85313dc2ef595e751eb1b8"
+
+def get_jobs_adzuna(query, location):
+    url = f"https://api.adzuna.com/v1/api/jobs/us/search/1"
+    params = {
+        "app_id": APP_ID,
+        "app_key": APP_KEY,
+        "results_per_page": 50,  # Increased to get more data for trends
+        "what": query,
+        "where": location,
+        "content-type": "application/json"
+    }
+
+    response = requests.get(url, params=params, timeout=5)
+    if response.status_code == 200:
+        jobs = response.json()["results"]
+        return [{
+            "title": job["title"],
+            "company": job.get("company", {}).get("display_name", "N/A"),
+            "location": job["location"]["display_name"],
+            "description": job["description"],
+            "url": job["redirect_url"]
+        } for job in jobs]
+    else:
+        logger.error(f"Adzuna API error: {response.status_code} - {response.text}")
+        return []
+
+@app.route('/job_market_analysis', methods=['GET'])
+def job_market_analysis():
+    """
+    Analyze job market trends based on skill and location.
+    
+    Query Parameters:
+    - skill: Skill to filter by (e.g., "javascript")
+    - location: Location to filter by (e.g., "United States", "All Locations")
+    - time_period: Time range (e.g., "Last 12 Months", default: "Last 12 Months")
+    - limit: Number of top locations to return (default: 10)
+    
+    Returns:
+    - Job opportunities by location (for bar chart)
+    - Industry distribution of tech jobs (for pie chart)
+    - Total jobs and top industries
+    """
+    try:
+        # Extract query parameters
+        skill = request.args.get('skill', '').lower().strip()
+        location = request.args.get('location', 'All Locations').strip()
+        time_period = request.args.get('time_period', 'Last 12 Months').strip()
+        limit = request.args.get('limit', 10, type=int)
+
+        logger.info(f"Job market analysis request: skill={skill}, location={location}, "
+                    f"time_period={time_period}, limit={limit}")
+
+        # Determine location filter (default to all if "All Locations")
+        adzuna_location = location if location != "All Locations" else ""
+
+        # Fetch jobs from Adzuna API
+        jobs = get_jobs_adzuna(skill or "tech", adzuna_location)
+        total_jobs = len(jobs)
+
+        # Aggregate job opportunities by location
+        location_counts = Counter(job.get('location', 'Unknown') for job in jobs)
+        top_locations = location_counts.most_common(limit)
+        location_data = [
+            {"location": loc, "count": count, "avg_salary": 100000}  # Mock avg_salary, replace with real data if available
+            for loc, count in top_locations
+        ]
+
+        # Extract industries from descriptions (simplified heuristic)
+        industry_counts = Counter()
+        for job in jobs:
+            description = job.get('description', '').lower()
+            if "technology" in description or "tech" in description:
+                industry_counts["Technology"] += 1
+            elif "finance" in description or "banking" in description:
+                industry_counts["Finance"] += 1
+            elif "healthcare" in description or "telehealth" in description:
+                industry_counts["Healthcare"] += 1
+            elif "retail" in description:
+                industry_counts["Retail"] += 1
+            elif "education" in description:
+                industry_counts["Education"] += 1
+            elif "manufacturing" in description:
+                industry_counts["Manufacturing"] += 1
+            else:
+                industry_counts["Other"] += 1
+
+        total_industries = sum(industry_counts.values()) or 1
+        industry_distribution = [
+            {"industry": ind, "percentage": (count / total_industries) * 100}
+            for ind, count in industry_counts.most_common()
+        ]
+
+        # Prepare response
+        response = {
+            "job_opportunities_by_location": location_data,
+            "industry_distribution": industry_distribution,
+            "total_jobs": total_jobs
+        }
+
+        return jsonify(response), 200
+
+    except Exception as e:
+        logger.error(f"Error in job_market_analysis: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 @app.route("/linkedin/login")
 def linkedin_login():
     params = {
