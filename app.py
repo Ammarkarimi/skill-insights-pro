@@ -766,7 +766,7 @@ def extract_tech_stack():
         # Save the file temporarily to read its contents
         temp_path = os.path.join(app.config['UPLOAD_FOLDER'], "temp_" + file.filename)
         file.save(temp_path)
- 
+        print(temp_path)
         # Extract text from the file based on file type
         if file.filename.endswith('.pdf'):
             loader = PyPDFLoader(temp_path)
@@ -839,14 +839,19 @@ def extract_tech_stack():
         print(f"Error in extract_tech_stack: {str(e)}")
         return jsonify({"error": str(e)}), 500
  
- 
+# from google import genai
+from pydantic import BaseModel
 import json
- 
+class Course(BaseModel):
+    title: str
+    type: str
+    link: str
+    description:str
 @app.route('/generate_learning_path', methods=['POST'])
 def generate_learning_path():
     try:
         data = request.json
- 
+        # print(data)
         if not data:
             return jsonify({"error": "No data provided"}), 400
  
@@ -854,12 +859,49 @@ def generate_learning_path():
         difficulty = data.get('difficulty', 'beginner')
         tech_stack = data.get('techStack', [])
         question_answers = data.get('questionAnswers', [])
+        print(f"Score: {score}")
+        print(f"Difficulty: {difficulty}")
+        print(f"Tech Stack: {tech_stack}")
+        print(f"Questions-Answers: {question_answers}")
+        # knowledge_gaps = analyze_knowledge_gaps(question_answers)
+        # print(f"Knowledge Gap: {knowledge_gaps}")
+        # learning_path = create_learning_path(score, difficulty, tech_stack, knowledge_gaps)
+        # print(f"Learning Path: {learning_path}")
+        # genai.configure(api_key="AIzaSyALGEs16JYUEYoeAjxHHKmgSODzVGEO8is")
+        # client = genai.Client(api_key="AIzaSyALGEs16JYUEYoeAjxHHKmgSODzVGEO8is")
+        # response = client.models.generate_content(
+        #     model="gemini-2.0-flash",
+        #     contents="Give a full course on AI, Machine Learning and Deep learning. The link must be working otherwise remove the link. In type you have to provide wether it is a course or project.",
+        #     config={
+        #         "response_mime_type": "application/json",
+        #         "response_schema": list[Course],
+        #     },
+        # )
+        genai.configure(api_key="AIzaSyALGEs16JYUEYoeAjxHHKmgSODzVGEO8is")
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        # Generate content with Gemini
+        prompt = f"""
+You an expert to create a learning path for students. You will be given Question answers and the answer given by the user. Also the score and difficulty level. You need to provide sources fo courses and project based on which topic user has gien incorrect answer.\n
+Questions-Answers: {question_answers}\n
+Tech Stack: {tech_stack}\n
+Difficulty: {difficulty}\n
+Score: {score}
+
+Give me real time link for courses and project. Make sure no dummy link must be given
+"""
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "response_mime_type": "application/json",
+                "response_schema": list[Course],
+            }
+            )
  
-        knowledge_gaps = analyze_knowledge_gaps(question_answers)
- 
-        learning_path = create_learning_path(score, difficulty, tech_stack, knowledge_gaps)
- 
-        return jsonify({"learningPath": learning_path})
+
+        learning_path = response.text
+        learning_path_json=json.loads(learning_path)
+        print(learning_path)
+        return jsonify({ "learningPath":learning_path_json }), 200
  
     except Exception as e:
         print(f"Error generating learning path: {str(e)}")
