@@ -696,7 +696,7 @@ def upload_resumes():
  
  
 # # Configure the API key for Google Generative AI
- 
+
 # # Define a route to generate the MCQs
 @app.route('/generate_mcqs', methods=['GET'])
 def generate_mcqs():
@@ -726,12 +726,13 @@ def generate_mcqs():
         Output Format:
         [
             {{
-                "question": "Which MongoDB command is used to create a new database?",
+                "question": "question",
+                "code":"code"
                 "options": {{
-                "A": "use <databaseName>",
-                "B": "db.createCollection()",
-                "C": "db.createDatabase()",
-                "D": "create <databaseName>"
+                "A": "Option A",
+                "B": "Option B",
+                "C": "Option C",
+                "D": "Option D"
                 }},
                 "answer": "A"
             }},
