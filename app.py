@@ -135,7 +135,7 @@ def analyze_resume_for_job(resume_text, job_desc):
         model = genai.GenerativeModel("gemini-1.5-flash")
  
         prompt = f"""
-        Analyze how well this resume matches the job description.
+        Analyze how well this resume matches the job description. See what skills are matching with job resume. Also see wether student has done any unique work that can be helpful for the given job description.
  
         Job description:
         {job_desc}
@@ -234,14 +234,16 @@ def similarity_checker_tfidf_job(job_desc, resumes_folder):
         resume_text = get_resume_text(resume_path)
         if not resume_text:
             continue
- 
+        print("="*50)
+        print(resume_text)
         # Calculate TF-IDF similarity
         try:
             corpus = [job_desc, resume_text]
             vectorizer = TfidfVectorizer()
             tfidf_matrix = vectorizer.fit_transform(corpus)
             similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
- 
+            print("="*50)
+            print(similarity)
             # Extract email from resume
             email = extract_email_from_resume(resume_text)
             if not email:
@@ -249,10 +251,14 @@ def similarity_checker_tfidf_job(job_desc, resumes_folder):
  
             # Get detailed analysis from Gemini
             analysis = analyze_resume_for_job(resume_text, job_desc)
- 
             # Use the match percentage from Gemini if available, otherwise use TF-IDF similarity
-            match_score = analysis.get("match_percentage", similarity[0][0] * 100) / 100
- 
+            print("="*50)
+            print(analysis)
+            if "match_percentage" in analysis:
+                match_score = ((analysis["match_percentage"] / 100) + similarity[0][0]) / 2.0
+            else:
+                match_score = similarity[0][0]
+
             result = {
                 "resume": resume_file,
                 "similarity_score": match_score,
@@ -291,6 +297,18 @@ def check_similarity_job():
             return jsonify({"error": "No job description set. Please submit a job description first."}), 400
  
         similarity_scores = similarity_checker_tfidf_job(job_description, app.config['UPLOAD_FOLDER'])
+
+        upload_folder = app.config['UPLOAD_FOLDER']
+
+        for filename in os.listdir(upload_folder):
+            file_path = os.path.join(upload_folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)  # Deletes the file or symbolic link
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)  # Deletes a directory if any
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
         return jsonify(similarity_scores)
     except Exception as e:
         print(f"Error in check_similarity route: {str(e)}")
@@ -527,10 +545,10 @@ def analyze_resume():
         elif '```' in response_text:
             response_text = response_text.split('```')[1].split('```')[0].strip()
  
-        # Parse and return the analysis results
-        import json
+
         try:
             analysis_results = json.loads(response_text)
+            print(analysis_results)
             return jsonify(analysis_results)
         except json.JSONDecodeError as e:
             # Create a simplified response with the error
@@ -840,6 +858,21 @@ def extract_tech_stack():
         print(f"Error in extract_tech_stack: {str(e)}")
         return jsonify({"error": str(e)}), 500
  
+# Function to check URL status
+def check_url_status(url):
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=5)
+        if response.status_code == 200:
+            print(f"[FOUND] The page is available: {url}")
+            return True
+        else:
+            print(f"[NOT FOUND] Status code: {response.status_code} for {url}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"[ERROR] Could not reach the page: {url}")
+        print(f"Details: {e}")
+        return False
+    
 # from google import genai
 from pydantic import BaseModel
 import json
@@ -852,7 +885,7 @@ class Course(BaseModel):
 def generate_learning_path():
     try:
         data = request.json
-        # print(data)
+        print(data)
         if not data:
             return jsonify({"error": "No data provided"}), 400
  
@@ -902,7 +935,12 @@ Give me real time link for courses and project. Make sure no dummy link must be 
         learning_path = response.text
         learning_path_json=json.loads(learning_path)
         print(learning_path)
-        return jsonify({ "learningPath":learning_path_json }), 200
+        valid_data = [item for item in learning_path_json if check_url_status(item["link"])]
+        for i in valid_data:
+            print("="*50)
+            print(i)
+            print("="*50)
+        return jsonify({ "learningPath":valid_data }), 200
  
     except Exception as e:
         print(f"Error generating learning path: {str(e)}")
@@ -1622,123 +1660,6 @@ def get_interview_details(filename):
         }), 500
 
 
-import requests
-from collections import Counter
-from datetime import datetime, timedelta
-import logging
-from flask import Flask, request, jsonify
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Adzuna API credentials (move to .env in production)
-APP_ID = "75bc9839"
-APP_KEY = "222236e64d85313dc2ef595e751eb1b8"
-
-def get_jobs_adzuna(query, location):
-    url = f"https://api.adzuna.com/v1/api/jobs/us/search/1"
-    params = {
-        "app_id": APP_ID,
-        "app_key": APP_KEY,
-        "results_per_page": 50,  # Increased to get more data for trends
-        "what": query,
-        "where": location,
-        "content-type": "application/json"
-    }
-
-    response = requests.get(url, params=params, timeout=5)
-    if response.status_code == 200:
-        jobs = response.json()["results"]
-        return [{
-            "title": job["title"],
-            "company": job.get("company", {}).get("display_name", "N/A"),
-            "location": job["location"]["display_name"],
-            "description": job["description"],
-            "url": job["redirect_url"]
-        } for job in jobs]
-    else:
-        logger.error(f"Adzuna API error: {response.status_code} - {response.text}")
-        return []
-
-@app.route('/job_market_analysis', methods=['GET'])
-def job_market_analysis():
-    """
-    Analyze job market trends based on skill and location.
-    
-    Query Parameters:
-    - skill: Skill to filter by (e.g., "javascript")
-    - location: Location to filter by (e.g., "United States", "All Locations")
-    - time_period: Time range (e.g., "Last 12 Months", default: "Last 12 Months")
-    - limit: Number of top locations to return (default: 10)
-    
-    Returns:
-    - Job opportunities by location (for bar chart)
-    - Industry distribution of tech jobs (for pie chart)
-    - Total jobs and top industries
-    """
-    try:
-        # Extract query parameters
-        skill = request.args.get('skill', '').lower().strip()
-        location = request.args.get('location', 'All Locations').strip()
-        time_period = request.args.get('time_period', 'Last 12 Months').strip()
-        limit = request.args.get('limit', 10, type=int)
-
-        logger.info(f"Job market analysis request: skill={skill}, location={location}, "
-                    f"time_period={time_period}, limit={limit}")
-
-        # Determine location filter (default to all if "All Locations")
-        adzuna_location = location if location != "All Locations" else ""
-
-        # Fetch jobs from Adzuna API
-        jobs = get_jobs_adzuna(skill or "tech", adzuna_location)
-        total_jobs = len(jobs)
-
-        # Aggregate job opportunities by location
-        location_counts = Counter(job.get('location', 'Unknown') for job in jobs)
-        top_locations = location_counts.most_common(limit)
-        location_data = [
-            {"location": loc, "count": count, "avg_salary": 100000}  # Mock avg_salary, replace with real data if available
-            for loc, count in top_locations
-        ]
-
-        # Extract industries from descriptions (simplified heuristic)
-        industry_counts = Counter()
-        for job in jobs:
-            description = job.get('description', '').lower()
-            if "technology" in description or "tech" in description:
-                industry_counts["Technology"] += 1
-            elif "finance" in description or "banking" in description:
-                industry_counts["Finance"] += 1
-            elif "healthcare" in description or "telehealth" in description:
-                industry_counts["Healthcare"] += 1
-            elif "retail" in description:
-                industry_counts["Retail"] += 1
-            elif "education" in description:
-                industry_counts["Education"] += 1
-            elif "manufacturing" in description:
-                industry_counts["Manufacturing"] += 1
-            else:
-                industry_counts["Other"] += 1
-
-        total_industries = sum(industry_counts.values()) or 1
-        industry_distribution = [
-            {"industry": ind, "percentage": (count / total_industries) * 100}
-            for ind, count in industry_counts.most_common()
-        ]
-
-        # Prepare response
-        response = {
-            "job_opportunities_by_location": location_data,
-            "industry_distribution": industry_distribution,
-            "total_jobs": total_jobs
-        }
-
-        return jsonify(response), 200
-
-    except Exception as e:
-        logger.error(f"Error in job_market_analysis: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
 @app.route("/linkedin/login")
 def linkedin_login():
     params = {
