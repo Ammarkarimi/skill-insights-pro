@@ -46,7 +46,9 @@ interface Question {
   question: string;
   options: { [key: string]: string } | string[];
   answer?: string;
+  code?: string | null;  
 }
+
 
 interface TechStack {
   name: string;
@@ -163,30 +165,32 @@ const SkillAssessment: React.FC = () => {
       }
 
       const data = await response.json();
-
+      console.log(data.mcqs);
       // Parse the response and format questions
       let parsedQuestions: Question[] = [];
 
       if (data && data.mcqs) {
         try {
-          // The API returns a string that contains JSON, so we need to parse it
-          // The response might be wrapped in ```json ``` markdown code blocks
-          let jsonString = data.mcqs;
-
-          // Remove markdown code block syntax if present
-          if (jsonString.startsWith("```json")) {
-            jsonString = jsonString.replace(/```json\n|\n```/g, "");
-          } else if (jsonString.startsWith("```")) {
-            jsonString = jsonString.replace(/```\n|\n```/g, "");
+          let mcqsArray = data.mcqs;
+          // Debug: log the type
+          // console.log('typeof data.mcqs:', typeof mcqsArray, mcqsArray);
+          if (typeof mcqsArray === 'string') {
+            // Remove markdown code block if present (only once)
+            let trimmed = mcqsArray.trim();
+            if (trimmed.startsWith('```json')) {
+              trimmed = trimmed.replace(/^```json/, '').replace(/```$/, '').trim();
+            } else if (trimmed.startsWith('```')) {
+              trimmed = trimmed.replace(/^```/, '').replace(/```$/, '').trim();
+            }
+            mcqsArray = JSON.parse(trimmed);
           }
-
-          // Parse the JSON string to get the array of questions
-          parsedQuestions = JSON.parse(jsonString);
-
-          // Add unique IDs to each question
-          parsedQuestions = parsedQuestions.map((q, index) => ({
+          if (!Array.isArray(mcqsArray)) {
+            console.error('data.mcqs is not an array after parsing:', mcqsArray);
+            mcqsArray = [];
+          }
+          parsedQuestions = mcqsArray.map((q, index) => ({
             ...q,
-            id: index + 1,
+            id: index + 1
           }));
         } catch (parseError) {
           console.error("Error parsing questions:", parseError);
@@ -302,214 +306,214 @@ const SkillAssessment: React.FC = () => {
   };
 
   // Updated handlePathRecommendation function
-const handlePathRecommendation = async () => {
-  setIsLoading(true);
+  const handlePathRecommendation = async () => {
+    setIsLoading(true);
 
-  try {
-    // Prepare assessment data
-    const selectedTechs = techStacks
-      .filter((tech) => tech.selected)
-      .map((tech) => tech.name);
-
-    // Get question and user answers with correct/incorrect status
-    const questionAnswers = questions.map((question) => {
-      const questionId = question.id as number;
-      const userAnswer = selectedAnswers[questionId] || "";
-      const isCorrect = userAnswer === question.answer;
-
-      return {
-        question: question.question,
-        userAnswer,
-        correctAnswer: question.answer,
-        isCorrect,
-      };
-    });
-
-    // Send data to backend for path recommendation
     try {
-      const response = await fetch(
-        "http://127.0.0.1:5000/generate_learning_path",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            score,
-            difficulty,
-            techStack: selectedTechs,
-            questionAnswers,
-          }),
+      // Prepare assessment data
+      const selectedTechs = techStacks
+        .filter((tech) => tech.selected)
+        .map((tech) => tech.name);
+
+      // Get question and user answers with correct/incorrect status
+      const questionAnswers = questions.map((question) => {
+        const questionId = question.id as number;
+        const userAnswer = selectedAnswers[questionId] || "";
+        const isCorrect = userAnswer === question.answer;
+
+        return {
+          question: question.question,
+          userAnswer,
+          correctAnswer: question.answer,
+          isCorrect,
+        };
+      });
+
+      // Send data to backend for path recommendation
+      try {
+        const response = await fetch(
+          "http://127.0.0.1:5000/generate_learning_path",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              score,
+              difficulty,
+              techStack: selectedTechs,
+              questionAnswers,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to get path recommendations");
         }
-      );
 
-      if (!response.ok) {
-        throw new Error("Failed to get path recommendations");
+        const data: LearningPathResponse = await response.json();
+
+        // Fixed: Set learningPath directly as array
+        if (data && Array.isArray(data.learningPath)) {
+          setLearningPath(data.learningPath);
+        } else {
+          throw new Error("Invalid learning path data structure");
+        }
+      } catch (error) {
+        console.error("Error generating learning path:", error);
+        toast({
+          title: "Error",
+          description:
+            "Failed to generate learning path recommendations. Using fallback path.",
+          variant: "destructive",
+        });
+
+        // Fallback learning path as array
+        setLearningPath([
+          {
+            title: "Fundamentals Refresher",
+            type: "course",
+            link: "https://example.com/course1",
+            description: "Review core concepts to ensure a solid foundation.",
+          },
+          {
+            title: "Practice Projects",
+            type: "project",
+            link: "https://example.com/projects",
+            description: "Apply your knowledge with hands-on projects.",
+          },
+          {
+            title: "Advanced Topics",
+            type: "tutorial",
+            link: "https://example.com/advanced",
+            description: "Deepen your understanding with specialized topics.",
+          },
+        ]);
       }
 
-      const data: LearningPathResponse = await response.json();
+      setStage(AssessmentStage.PathRecommendation);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // Fixed: Set learningPath directly as array
-      if (data && Array.isArray(data.learningPath)) {
-        setLearningPath(data.learningPath);
-      } else {
-        throw new Error("Invalid learning path data structure");
-      }
-    } catch (error) {
-      console.error("Error generating learning path:", error);
+  const downloadLearningPath = () => {
+    if (!learningPath || learningPath.length === 0) {
       toast({
         title: "Error",
-        description:
-          "Failed to generate learning path recommendations. Using fallback path.",
+        description: "Learning path not available for download.",
         variant: "destructive",
       });
-      
-      // Fallback learning path as array
-      setLearningPath([
-        {
-          title: "Fundamentals Refresher",
-          type: "course",
-          link: "https://example.com/course1",
-          description: "Review core concepts to ensure a solid foundation.",
-        },
-        {
-          title: "Practice Projects",
-          type: "project",
-          link: "https://example.com/projects",
-          description: "Apply your knowledge with hands-on projects.",
-        },
-        {
-          title: "Advanced Topics",
-          type: "tutorial",
-          link: "https://example.com/advanced",
-          description: "Deepen your understanding with specialized topics.",
-        },
-      ]);
+      return;
     }
 
-    setStage(AssessmentStage.PathRecommendation);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setIsDownloading(true);
 
+    try {
+      // Create a new PDF document
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      let yPosition = 20;
 
-const downloadLearningPath = () => {
-  if (!learningPath || learningPath.length === 0) {
-    toast({
-      title: "Error",
-      description: "Learning path not available for download.",
-      variant: "destructive",
-    });
-    return;
-  }
+      // Add title
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      doc.text("Personalized Learning Path", pageWidth / 2, yPosition, {
+        align: "center",
+      });
+      yPosition += 15;
 
-  setIsDownloading(true);
+      // Add assessment info
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Assessment Score: ${score}%`, margin, yPosition);
+      yPosition += 8;
+      doc.text(`Difficulty Level: ${difficulty}`, margin, yPosition);
+      yPosition += 8;
 
-  try {
-    // Create a new PDF document
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    let yPosition = 20;
+      // Add selected tech stacks
+      const selectedTechs = techStacks
+        .filter((tech) => tech.selected)
+        .map((tech) => tech.name)
+        .join(", ");
 
-    // Add title
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("Personalized Learning Path", pageWidth / 2, yPosition, {
-      align: "center",
-    });
-    yPosition += 15;
+      doc.text(`Selected Technologies: ${selectedTechs}`, margin, yPosition);
+      yPosition += 15;
 
-    // Add assessment info
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Assessment Score: ${score}%`, margin, yPosition);
-    yPosition += 8;
-    doc.text(`Difficulty Level: ${difficulty}`, margin, yPosition);
-    yPosition += 8;
+      // Add description
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "italic");
+      const description =
+        "Based on your assessment, here's a customized learning path to help strengthen your skills.";
 
-    // Add selected tech stacks
-    const selectedTechs = techStacks
-      .filter((tech) => tech.selected)
-      .map((tech) => tech.name)
-      .join(", ");
+      const splitDescription = doc.splitTextToSize(
+        description,
+        pageWidth - 2 * margin
+      );
 
-    doc.text(`Selected Technologies: ${selectedTechs}`, margin, yPosition);
-    yPosition += 15;
+      doc.text(splitDescription, margin, yPosition);
+      yPosition += splitDescription.length * 8 + 15;
 
-    // Add description
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "italic");
-    const description = "Based on your assessment, here's a customized learning path to help strengthen your skills.";
-    
-    const splitDescription = doc.splitTextToSize(
-      description,
-      pageWidth - 2 * margin
-    );
+      // Add resources heading
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Recommended Resources", margin, yPosition);
+      yPosition += 10;
 
-    doc.text(splitDescription, margin, yPosition);
-    yPosition += splitDescription.length * 8 + 15;
+      // Add resources table using the imported autoTable function
+      const resourcesData = learningPath.map((resource) => [
+        resource.title,
+        resource.type,
+        resource.description,
+        resource.link,
+      ]);
 
-    // Add resources heading
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("Recommended Resources", margin, yPosition);
-    yPosition += 10;
+      // Use autoTable as a function instead of a method
+      autoTable(doc, {
+        startY: yPosition,
+        head: [["Title", "Type", "Description", "Link"]],
+        body: resourcesData,
+        margin: { top: 15, right: margin, bottom: 15, left: margin },
+        styles: { overflow: "linebreak", cellPadding: 5 },
+        columnStyles: {
+          0: { cellWidth: 40 },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 80 },
+          3: { cellWidth: 45 },
+        },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      });
 
-    // Add resources table using the imported autoTable function
-    const resourcesData = learningPath.map((resource) => [
-      resource.title,
-      resource.type,
-      resource.description,
-      resource.link,
-    ]);
+      // Get the final Y position after the table
+      const finalY = (doc as any).lastAutoTable?.finalY + 20 || yPosition + 100;
 
-    // Use autoTable as a function instead of a method
-    autoTable(doc, {
-      startY: yPosition,
-      head: [["Title", "Type", "Description", "Link"]],
-      body: resourcesData,
-      margin: { top: 15, right: margin, bottom: 15, left: margin },
-      styles: { overflow: "linebreak", cellPadding: 5 },
-      columnStyles: {
-        0: { cellWidth: 40 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 80 },
-        3: { cellWidth: 45 },
-      },
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-    });
+      // Add footer
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(
+        `Generated on ${new Date().toLocaleDateString()} - Skill Assessment Platform`,
+        pageWidth / 2,
+        finalY,
+        { align: "center" }
+      );
 
-    // Get the final Y position after the table
-    const finalY = (doc as any).lastAutoTable?.finalY + 20 || yPosition + 100;
+      // Download the PDF
+      doc.save(`learning-path-${new Date().getTime()}.pdf`);
 
-    // Add footer
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(
-      `Generated on ${new Date().toLocaleDateString()} - Skill Assessment Platform`,
-      pageWidth / 2,
-      finalY,
-      { align: "center" }
-    );
-
-    // Download the PDF
-    doc.save(`learning-path-${new Date().getTime()}.pdf`);
-
-    toast({
-      title: "Download Complete",
-      description: "Your learning path has been downloaded successfully.",
-    });
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    toast({
-      title: "Download Failed",
-      description: "There was an error creating your PDF. Please try again.",
-      variant: "destructive",
-    });
-  } finally {
-    setIsDownloading(false);
-  }
-};  // Helper function to render options correctly
+      toast({
+        title: "Download Complete",
+        description: "Your learning path has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Download Failed",
+        description: "There was an error creating your PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  }; // Helper function to render options correctly
   const renderOptions = (question: Question) => {
     if (!question || !question.options) return null;
 
@@ -804,9 +808,16 @@ const downloadLearningPath = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="mb-6">
-                    <h3 className="text-lg font-medium mb-4">
-                      {questions[currentQuestionIndex]?.question}
-                    </h3>
+                    <div className="mb-4">
+                      <h3 className="text-lg font-medium whitespace-pre-line mb-2">
+                        {questions[currentQuestionIndex]?.question}
+                      </h3>
+                      {questions[currentQuestionIndex]?.code && questions[currentQuestionIndex].code.trim() !== "" && (
+                        <pre className="bg-gray-100 p-3 rounded text-sm overflow-x-auto">
+                          <code>{questions[currentQuestionIndex].code}</code>
+                        </pre>
+                      )}
+                    </div>
 
                     <RadioGroup
                       value={
@@ -935,125 +946,128 @@ const downloadLearningPath = () => {
         )}
 
         {stage === AssessmentStage.PathRecommendation && (
-  <Card>
-    <CardHeader>
-      <CardTitle className="text-2xl">
-        Personalized Learning Path
-      </CardTitle>
-      <CardDescription>
-        Based on your assessment, we've created a customized learning path to help strengthen your skills.
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      {isLoading ? (
-        <div className="flex flex-col items-center py-8">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-gray-600">
-            Generating your personalized learning path...
-          </p>
-        </div>
-      ) : (
-        <div>
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-3">Overview</h3>
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50 p-4 rounded-lg text-center">
-                <p className="text-sm text-gray-500">Score</p>
-                <p className="text-xl font-bold text-blue-700">
-                  {score}%
-                </p>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg text-center">
-                <p className="text-sm text-gray-500">Level</p>
-                <p className="text-xl font-bold text-green-700">
-                  {difficulty || "Intermediate"}
-                </p>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg text-center">
-                <p className="text-sm text-gray-500">Focus Area</p>
-                <p className="text-xl font-bold text-purple-700">
-                  {techStacks.filter((t) => t.selected)[0]?.name ||
-                    "Technology"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold">
-              Recommended Resources
-            </h3>
-
-            {learningPath && learningPath.length > 0 ? (
-              learningPath.map((resource, index) => (
-                <div
-                  key={index}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1">
-                      {getResourceIcon(resource.type)}
-                    </div>
-                    <div>
-                      <h4 className="text-md font-medium">
-                        {resource.title}
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {resource.description}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{resource.type}</Badge>
-                        <a
-                          href={resource.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                        >
-                          View Resource <ArrowRight className="h-3 w-3" />
-                        </a>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl">
+                Personalized Learning Path
+              </CardTitle>
+              <CardDescription>
+                Based on your assessment, we've created a customized learning
+                path to help strengthen your skills.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex flex-col items-center py-8">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                  <p className="text-gray-600">
+                    Generating your personalized learning path...
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-3">Overview</h3>
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="bg-blue-50 p-4 rounded-lg text-center">
+                        <p className="text-sm text-gray-500">Score</p>
+                        <p className="text-xl font-bold text-blue-700">
+                          {score}%
+                        </p>
+                      </div>
+                      <div className="bg-green-50 p-4 rounded-lg text-center">
+                        <p className="text-sm text-gray-500">Level</p>
+                        <p className="text-xl font-bold text-green-700">
+                          {difficulty || "Intermediate"}
+                        </p>
+                      </div>
+                      <div className="bg-purple-50 p-4 rounded-lg text-center">
+                        <p className="text-sm text-gray-500">Focus Area</p>
+                        <p className="text-xl font-bold text-purple-700">
+                          {techStacks.filter((t) => t.selected)[0]?.name ||
+                            "Technology"}
+                        </p>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-6 text-gray-500">
-                <AlertTriangle className="h-12 w-12 mx-auto text-amber-500 mb-2" />
-                <p>
-                  No specific resources found. Please try again or
-                  contact support.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </CardContent>
-    <CardFooter className="justify-between">
-      <Button variant="outline" onClick={handleRestart}>
-        Start New Assessment
-      </Button>
-      <Button
-        onClick={downloadLearningPath}
-        disabled={isDownloading || !learningPath || learningPath.length === 0}
-        className="flex items-center gap-2"
-      >
-        {isDownloading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Preparing Download...
-          </>
-        ) : (
-          <>
-            <Download className="h-4 w-4" />
-            Download Learning Path
-          </>
-        )}
-      </Button>
-    </CardFooter>
-  </Card>
-)}
 
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold">
+                      Recommended Resources
+                    </h3>
+
+                    {learningPath && learningPath.length > 0 ? (
+                      learningPath.map((resource, index) => (
+                        <div
+                          key={index}
+                          className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-1">
+                              {getResourceIcon(resource.type)}
+                            </div>
+                            <div>
+                              <h4 className="text-md font-medium">
+                                {resource.title}
+                              </h4>
+                              <p className="text-sm text-gray-600 mb-2">
+                                {resource.description}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">{resource.type}</Badge>
+                                <a
+                                  href={resource.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                >
+                                  View Resource{" "}
+                                  <ArrowRight className="h-3 w-3" />
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6 text-gray-500">
+                        <AlertTriangle className="h-12 w-12 mx-auto text-amber-500 mb-2" />
+                        <p>
+                          No specific resources found. Please try again or
+                          contact support.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="justify-between">
+              <Button variant="outline" onClick={handleRestart}>
+                Start New Assessment
+              </Button>
+              <Button
+                onClick={downloadLearningPath}
+                disabled={
+                  isDownloading || !learningPath || learningPath.length === 0
+                }
+                className="flex items-center gap-2"
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Preparing Download...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Download Learning Path
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
       </div>
     </Layout>
   );

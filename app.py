@@ -9,8 +9,8 @@ AUTH_URL=os.getenv("AUTH_URL")
 TOKEN_URL=os.getenv("TOKEN_URL")
 API_URL=os.getenv("API_URL")
 
-
-
+import random
+import shutil
 from flask import Flask, request, jsonify
 from flask import send_file
 import os
@@ -126,7 +126,7 @@ def get_resume_text(file_path):
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 return f.read()
         except Exception as e:
-            print(f"Error reading text file: {str(e)}")
+            print(f"Error reading text file: {str(e)}") 
             return ""
  
 def analyze_resume_for_job(resume_text, job_desc):
@@ -503,18 +503,54 @@ def analyze_resume():
         model = genai.GenerativeModel("gemini-1.5-flash")
  
         prompt = f"""
-        Analyze this resume text and provide suggestions for improvement. Focus on:
-        1. Action verbs and impactful language
-        2. Quantifiable achievements
-        3. Technical skills presentation
-        4. ATS optimization
-        5. Clarity and conciseness
- 
-        For each suggestion, provide:
-        - The original text
-        - A suggested improvement
-        - The reason for the change
- 
+        System Instructions:
+
+        You are an expert resume analyst powered by a Large Language Model. Your task is to evaluate a resume provided as input and deliver a comprehensive analysis. The analysis should assess word choice, grammar, structure, formatting, content relevance, and ATS compatibility. If a job description or target role/industry is provided, tailor the analysis to ensure alignment with the job requirements. Provide clear, actionable feedback to help the user improve their resume. Follow these guidelines:
+
+        Word Choice Evaluation:
+        Assess the language used in the resume for clarity, professionalism, and impact.
+        Identify overused buzzwords (e.g., "hardworking," "team player") and suggest stronger, specific alternatives.
+        Highlight jargon or technical terms that may not be appropriate for the target audience.
+        Check for tone consistency (e.g., professional, confident, not overly casual or verbose).
+        Flag any vague or weak phrases and suggest precise, action-oriented verbs (e.g., replace "worked on" with "developed" or "executed").
+        Grammar and Spelling Check:
+        Identify grammatical errors, spelling mistakes, or punctuation issues.
+        Suggest corrections for each error with a brief explanation.
+        Ensure the resume adheres to standard English conventions unless otherwise specified (e.g., US vs. UK English).
+        Structure and Formatting Assessment:
+        Evaluate the resume’s organization (e.g., clear sections for education, experience, skills).
+        Check for consistent formatting (e.g., font size, bullet points, spacing).
+        Assess readability (e.g., appropriate length, typically 1-2 pages, unless specified).
+        Flag cluttered layouts or excessive use of graphics/fonts that may hinder ATS compatibility.
+        Suggest structural improvements, such as reordering sections for better impact.
+        Content Relevance:
+        If a job description or target role/industry is provided, evaluate how well the resume aligns with the job’s requirements.
+        Check for relevant keywords and skills that match the job description.
+        Highlight missing qualifications or experiences that could strengthen the resume.
+        Suggest tailoring specific sections to better reflect the target role.
+        ATS Compatibility:
+        Analyze the resume for ATS-friendliness (e.g., use of standard section headers, avoidance of complex formatting like tables or images).
+        Identify keywords that may improve ATS ranking based on the job description (if provided).
+        Flag potential ATS issues, such as non-standard file formats or unreadable fonts.
+        Strengths and Weaknesses:
+        Summarize the resume’s key strengths (e.g., strong achievements, clear qualifications).
+        Highlight areas for improvement (e.g., weak descriptions, missing certifications).
+        Scoring:
+        Provide a numerical score (0-100) for each of the following categories:
+        Word Choice
+        Grammar and Spelling
+        Structure and Formatting
+        Content Relevance
+        ATS Compatibility
+        Include a brief justification for each score.
+        Suggestions for Improvement:
+        Provide specific, actionable recommendations for each identified issue (e.g., rephrase a bullet point, add a specific skill).
+        Offer at least 3-5 suggestions to enhance the resume’s overall quality.
+        If applicable, provide a revised version of problematic sections with suggested rephrasing.
+        Tone and Style:
+        Maintain a professional, constructive, and encouraging tone in all feedback.
+        Avoid overly technical jargon in explanations unless requested by the user.
+        Ensure feedback is concise yet comprehensive.
         Format your response as valid JSON with the following structure:
         {{
             "text": "the full resume text",
@@ -529,7 +565,7 @@ def analyze_resume():
                 ...more suggestions...
             ]
         }}
- 
+
         Include 3-7 high-impact suggestions. Only include the JSON in your response, no other text.
  
         Resume text:
@@ -571,7 +607,7 @@ def extract_fallback_suggestions(resume_text):
     """Generate fallback suggestions if JSON parsing fails"""
     # Look for common resume improvement opportunities
     suggestions = []
- 
+    
     # Example: Find passive voice phrases
     passive_patterns = [
         (r"(is|are|was|were|been|be|being) (managed|developed|created|designed|implemented)",
@@ -636,7 +672,7 @@ def extract_fallback_suggestions(resume_text):
             "reason": "A strong summary helps recruiters quickly understand your value proposition"
         })
  
-    return suggestions
+    return suggestions, print("fallback used")
  
  
  
@@ -1659,7 +1695,133 @@ def get_interview_details(filename):
             "details": str(e)
         }), 500
 
+import requests
+from bs4 import BeautifulSoup
+import json
+import re
+from flask import Flask, request, jsonify
+import time
+import google.generativeai as genai
 
+
+# Configure the Gemini API
+genai.configure(api_key="AIzaSyALGEs16JYUEYoeAjxHHKmgSODzVGEO8is")
+
+def get_job_count(city, skill):
+    """
+    Fetch real job count for a specific skill in a given city from multiple job boards.
+    """
+    job_count = 0
+    urls = [
+        f"https://www.indeed.com/jobs?q={skill}+jobs&l={city}",
+        f"https://www.linkedin.com/jobs/search?keywords={skill}&location={city}%2C%20USA",
+        f"https://www.glassdoor.com/Job/jobs.htm?sc.keyword={skill}&locT=C&locId={city}"
+    ]
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
+    for url in urls:
+        try:
+            response = requests.get(url, headers=headers, timeout=5)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            time.sleep(1)  # Delay to avoid rate limiting
+            
+            # Try different elements based on each site
+            if "indeed" in url:
+                job_count_element = soup.find('div', {'id': 'searchCountPages'})
+                if job_count_element:
+                    text = job_count_element.get_text().lower()
+                    match = re.search(r'of\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)', text)
+                    job_count = int(match.group(1).replace(',', '')) if match else job_count
+            elif "linkedin" in url:
+                job_count_element = soup.find('span', class_='results-context-header__job-count')
+                if job_count_element:
+                    text = job_count_element.get_text().lower()
+                    match = re.search(r'(\d{1,3}(?:,\d{3})*(?:\.\d+)?)', text)
+                    job_count = int(match.group(1).replace(',', '')) if match else job_count
+            elif "glassdoor" in url:
+                job_count_element = soup.find('div', class_='jobsCount')
+                if job_count_element:
+                    text = job_count_element.get_text().lower()
+                    match = re.search(r'(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s+jobs', text)
+                    job_count = int(match.group(1).replace(',', '')) if match else job_count
+            
+            if job_count > 0:
+                break  # Stop if we find a valid count
+        except Exception as e:
+            print(f"Error scraping {url}: {e}")
+    
+    return job_count if 0 < job_count < 100000 else 0
+
+def get_average_salary(city, skill):
+    """
+    Fetch average salary for a specific skill in a given city using Gemini 1.5 Flash.
+    """
+    salary = 0
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        prompt = f"""
+        Provide the approximate average annual salary (in USD) for a professional with the skill '{skill}' in the city '{city}', USA, as of June 2025. 
+        Return only the numerical value (e.g., 120000) without any additional text, symbols, or explanations. 
+        If no data is available, return 0.
+        """
+        response = model.generate_content(prompt)
+        salary_text = response.text.strip()
+        if salary_text.isdigit():
+            salary = int(salary_text)
+    except Exception as e:
+        print(f"Error fetching salary from Gemini API: {e}")
+    
+    return salary if 0 < salary < 1000000 else 0
+
+def search_jobs(skill):
+    """
+    Search for job counts and salaries across 8 US cities for a given skill, sorted by job count.
+    """
+    cities = [
+        "San Francisco", "New York", "Seattle", "Austin",
+        "Boston", "Chicago", "Los Angeles", "Denver"
+    ]
+    job_data = []
+
+    for city in cities:
+        job_count = get_job_count(city, skill)
+        salary = get_average_salary(city, skill)
+        job_data.append({
+            "city": city,
+            "job_count": job_count,
+            "average_salary": salary
+        })
+
+    # Sort by job_count in descending order and limit to top 8
+    job_data.sort(key=lambda x: x["job_count"], reverse=True)
+    return job_data[:8]  # Ensure top 8 cities
+
+def generate_job_recommendations(skills):
+    """
+    Generate job recommendations for given skills.
+    """
+    recommendations = {}
+    
+    for skill in skills:
+        print(f"\nSearching jobs for: {skill}")
+        jobs = search_jobs(skill)
+        recommendations[skill] = jobs
+    
+    return recommendations
+
+@app.route('/job_recommendations_multi', methods=['GET'])
+def job_recommendations_multi():
+    """
+    Fetch job recommendations for given skills from multiple sources and return top 8 cities.
+    
+    Query Parameter:
+    - skills: Comma-separated list of skills (e.g., ?skills=Python,Data Science)
+    """
+    skills_input = request.args.get('skills', 'Python,Data Science,Machine Learning,Web Development').split(',')
+    recommendations = generate_job_recommendations(skills_input)
+    return jsonify(recommendations)
 @app.route("/linkedin/login")
 def linkedin_login():
     params = {
