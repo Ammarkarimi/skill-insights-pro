@@ -298,17 +298,17 @@ def check_similarity_job():
  
         similarity_scores = similarity_checker_tfidf_job(job_description, app.config['UPLOAD_FOLDER'])
 
-        upload_folder = app.config['UPLOAD_FOLDER']
+        # upload_folder = app.config['UPLOAD_FOLDER']
 
-        for filename in os.listdir(upload_folder):
-            file_path = os.path.join(upload_folder, filename)
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)  # Deletes the file or symbolic link
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)  # Deletes a directory if any
-            except Exception as e:
-                print(f'Failed to delete {file_path}. Reason: {e}')
+        # for filename in os.listdir(upload_folder):
+        #     file_path = os.path.join(upload_folder, filename)
+        #     try:
+        #         if os.path.isfile(file_path) or os.path.islink(file_path):
+        #             os.unlink(file_path)  # Deletes the file or symbolic link
+        #         elif os.path.isdir(file_path):
+        #             shutil.rmtree(file_path)  # Deletes a directory if any
+        #     except Exception as e:
+        #         print(f'Failed to delete {file_path}. Reason: {e}')
         return jsonify(similarity_scores)
     except Exception as e:
         print(f"Error in check_similarity route: {str(e)}")
