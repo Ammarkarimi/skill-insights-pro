@@ -38,7 +38,7 @@ import {
   MapPin,
   Building,
   BarChart3,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import axios from "axios";
 
@@ -133,13 +133,12 @@ const JobMarket = () => {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'locations') {
+    if (activeTab === "locations") {
       fetchLocationDemand();
-    } else if (activeTab === 'industries') {
+    } else if (activeTab === "industries") {
       fetchIndustryDistribution();
     }
   }, [activeTab]);
-
 
   // Filter skills based on search term
   useEffect(() => {
@@ -201,7 +200,7 @@ const JobMarket = () => {
       setTopSkills(skillsData);
       // Apply search filter if term exists
       const filteredData = searchTerm
-        ? skillsData.filter(skill =>
+        ? skillsData.filter((skill) =>
             skill.name.toLowerCase().includes(searchTerm.toLowerCase())
           )
         : skillsData;
@@ -217,45 +216,51 @@ const JobMarket = () => {
     }
   };
 
- const fetchLocationDemand = async () => {
-  setLoadingLocations(true);
-  try {
-    // Use your actual job recommendations API
-    const response = await axios.get('http://localhost:5000/job_recommendations_multi', {
-      params: { 
-        skills: selectedSkill || 'Python,JavaScript,React,AWS',
-        location: selectedLocation !== 'all' ? selectedLocation : undefined,
-        search: searchTerm // Include search term for filtering locations
-      }
-    });
-    
-    // Transform the API response to match your chart format
-    const skillData = response.data[selectedSkill] || response.data[Object.keys(response.data)[0]] || [];
-    const formattedData = skillData.map(item => ({
-      name: item.city,
-      jobs: item.job_count,
-      averageSalary: item.average_salary || 0
-    }));
-    
-    // Filter locations if search term exists
-    const filteredData = searchTerm
-      ? formattedData.filter(location =>
-          location.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      : formattedData;
-    
-    setLocationDemand(filteredData);
-    setErrorMessage('');
-  } catch (error) {
-    console.error('Error fetching location demand:', error);
-    setLocationDemand(sampleLocationDemand);
-    setErrorMessage('Failed to load location data. Using sample data instead.');
-  } finally {
-    setLoadingLocations(false);
-  }
-};
+  const fetchLocationDemand = async () => {
+    setLoadingLocations(true);
+    try {
+      // Use your actual job recommendations API
+      const response = await axios.get(
+        "http://localhost:5000/job_recommendations_multi",
+        {
+          params: {
+            skills: selectedSkill || "Python,JavaScript,React,AWS",
+            location: selectedLocation !== "all" ? selectedLocation : undefined,
+            search: searchTerm, // Include search term for filtering locations
+          },
+        }
+      );
 
+      // Transform the API response to match your chart format
+      const skillData =
+        response.data[selectedSkill] ||
+        response.data[Object.keys(response.data)[0]] ||
+        [];
+      const formattedData = skillData.map((item) => ({
+        name: item.city,
+        jobs: item.job_count,
+        averageSalary: item.average_salary || 0,
+      }));
 
+      // Filter locations if search term exists
+      const filteredData = searchTerm
+        ? formattedData.filter((location) =>
+            location.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : formattedData;
+
+      setLocationDemand(filteredData);
+      setErrorMessage("");
+    } catch (error) {
+      console.error("Error fetching location demand:", error);
+      setLocationDemand(sampleLocationDemand);
+      setErrorMessage(
+        "Failed to load location data. Using sample data instead."
+      );
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
 
   const fetchIndustryDistribution = async () => {
     setLoadingIndustries(true);
@@ -270,14 +275,14 @@ const JobMarket = () => {
       const industriesData = Array.isArray(response.data)
         ? response.data
         : sampleIndustryDistribution;
-      
+
       // Filter industries if search term exists
       const filteredData = searchTerm
-        ? industriesData.filter(industry =>
+        ? industriesData.filter((industry) =>
             industry.name.toLowerCase().includes(searchTerm.toLowerCase())
           )
         : industriesData;
-      
+
       setIndustryDistribution(filteredData);
       setErrorMessage("");
     } catch (error) {
@@ -293,12 +298,12 @@ const JobMarket = () => {
 
   const handleApplyFilters = () => {
     // Market Trends: Filter by location and search term for skill trends
-    if (activeTab === 'trends') {
+    if (activeTab === "trends") {
       fetchSkillTrends(); // Will use selectedLocation and searchTerm
     }
 
     // In-Demand Skills: Filter by location and search term
-    if (activeTab === 'skills') {
+    if (activeTab === "skills") {
       fetchTopSkills(); // Will use selectedLocation
       if (searchTerm) {
         setFilteredSkills(
@@ -310,64 +315,68 @@ const JobMarket = () => {
     }
 
     // Location Analysis: Filter by selected skill and location
-    if (activeTab === 'locations') {
+    if (activeTab === "locations") {
       fetchLocationDemand(); // Will use selectedSkill and selectedLocation
     }
 
     // Industry Breakdown: Filter by location and search term for industry focus
-    if (activeTab === 'industries') {
+    if (activeTab === "industries") {
       fetchIndustryDistribution(); // Will use selectedLocation and searchTerm
     }
   };
 
   const handleTabChange = (value) => {
-     console.log('Tab changed to:', value);
+    console.log("Tab changed to:", value);
     setActiveTab(value);
   };
 
   // Loading component
   const LoadingSpinner = () => (
-    <div className="flex justify-center items-center h-64">
-      <Loader2 className="h-8 w-8 text-primary animate-spin" />
-      <span className="ml-2">Loading data...</span>
+    <div className="flex flex-col items-center justify-center h-64 gap-3">
+      <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 text-primary animate-spin" />
+      <span className="text-sm sm:text-base text-gray-600">
+        Loading data...
+      </span>
     </div>
   );
 
   // Error component
   const ErrorMessage = ({ message }) => (
-    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-      <p>{message}</p>
+    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm sm:text-base flex items-center justify-center">
+      <p className="text-center">{message}</p>
     </div>
   );
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto">
-        <h1 className="page-header">Job Market Analysis</h1>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 className="page-header text-2xl sm:text-3xl md:text-4xl font-bold mb-6">
+          Job Market Analysis
+        </h1>
 
         {errorMessage && <ErrorMessage message={errorMessage} />}
 
-        <div className="mb-6 flex flex-col md:flex-row gap-4">
-          <div className="relative flex-grow">
+        <div className="mb-8 space-y-6">
+          <div className="relative w-full">
             <Search
               className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
               size={18}
             />
             <Input
               placeholder="Search skills, locations, or industries..."
-              className="pl-10"
+              className="pl-10 w-full text-sm sm:text-base"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="flex gap-4">
-            <div className="w-40">
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:items-center">
+            <div className="w-full sm:w-48">
               <Select
                 value={selectedLocation}
                 onValueChange={setSelectedLocation}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full text-sm sm:text-base">
                   <SelectValue placeholder="Location" />
                 </SelectTrigger>
                 <SelectContent>
@@ -380,7 +389,7 @@ const JobMarket = () => {
             </div>
 
             <Button
-              className="bg-primary"
+              className="bg-primary w-full sm:w-auto text-sm sm:text-base flex items-center justify-center gap-2 min-h-[40px] rounded-lg transition-all duration-200 hover:opacity-90 focus:ring-2 focus:ring-primary/50"
               onClick={handleApplyFilters}
               disabled={
                 loadingTrends ||
@@ -394,11 +403,13 @@ const JobMarket = () => {
               loadingLocations ||
               loadingIndustries ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading...
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                  <span>Loading...</span>
                 </>
               ) : (
-                "Apply Filters"
+                <>
+                  <span>Apply Filters</span>
+                </>
               )}
             </Button>
           </div>
@@ -406,28 +417,56 @@ const JobMarket = () => {
 
         <Tabs
           defaultValue="trends"
-          className="mb-6"
+          className="space-y-8"
           onValueChange={handleTabChange}
         >
-          <TabsList className="w-full mb-6">
-            <TabsTrigger value="trends" className="flex-1">
-              <TrendingUp className="mr-2 h-4 w-4" />
-              Market Trends
-            </TabsTrigger>
-            <TabsTrigger value="skills" className="flex-1">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              In-Demand Skills
-            </TabsTrigger>
-            <TabsTrigger value="locations" className="flex-1">
-              <MapPin className="mr-2 h-4 w-4" />
-              Location Analysis
-            </TabsTrigger>
-            <TabsTrigger value="industries" className="flex-1">
-              <Building className="mr-2 h-4 w-4" />
-              Industry Breakdown
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="w-full min-w-fit grid grid-cols-4 sm:flex sm:flex-row gap-1 p-1 bg-muted/20 rounded-xl h-auto">
+              <TabsTrigger
+                value="trends"
+                className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg transition-all duration-200 hover:bg-muted/50 min-w-0 flex-1"
+              >
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center sm:text-left">
+                  <span className="block sm:hidden">Trends</span>
+                  <span className="hidden sm:block">Market Trends</span>
+                </span>
+              </TabsTrigger>
 
+              <TabsTrigger
+                value="skills"
+                className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg transition-all duration-200 hover:bg-muted/50 min-w-0 flex-1"
+              >
+                <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center sm:text-left">
+                  <span className="block sm:hidden">Skills</span>
+                  <span className="hidden sm:block">In-Demand Skills</span>
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="locations"
+                className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg transition-all duration-200 hover:bg-muted/50 min-w-0 flex-1"
+              >
+                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center sm:text-left">
+                  <span className="block sm:hidden">Locations</span>
+                  <span className="hidden sm:block">Location Analysis</span>
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="industries"
+                className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg transition-all duration-200 hover:bg-muted/50 min-w-0 flex-1"
+              >
+                <Building className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center sm:text-left">
+                  <span className="block sm:hidden">Industries</span>
+                  <span className="hidden sm:block">Industry Breakdown</span>
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
           <TabsContent value="trends">
             <Card>
               <CardHeader>
@@ -537,31 +576,40 @@ const JobMarket = () => {
           <TabsContent value="skills">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                   <BarChart3 className="h-5 w-5 text-primary" />
                   Top In-Demand Skills
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-sm">
                   The most sought-after technical skills by employers right now.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-2 sm:p-6">
                 {loadingSkills ? (
                   <LoadingSpinner />
                 ) : filteredSkills &&
                   Array.isArray(filteredSkills) &&
                   filteredSkills.length > 0 ? (
                   <>
-                    <div className="h-[400px] w-full">
+                    <div className="h-[300px] sm:h-[400px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                           data={filteredSkills}
                           layout="vertical"
-                          margin={{ top: 5, right: 30, left: 50, bottom: 5 }}
+                          margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" domain={[0, 100]} />
-                          <YAxis dataKey="name" type="category" />
+                          <XAxis
+                            type="number"
+                            domain={[0, 100]}
+                            tick={{ fontSize: 12 }}
+                          />
+                          <YAxis
+                            dataKey="name"
+                            type="category"
+                            tick={{ fontSize: 12 }}
+                            width={100}
+                          />
                           <Tooltip />
                           <Bar
                             dataKey="value"
@@ -573,7 +621,7 @@ const JobMarket = () => {
                     </div>
                   </>
                 ) : (
-                  <div className="text-center p-8 text-gray-500">
+                  <div className="text-center p-4 sm:p-8 text-gray-500">
                     No skills data available
                   </div>
                 )}
@@ -582,132 +630,88 @@ const JobMarket = () => {
           </TabsContent>
 
           <TabsContent value="locations">
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <MapPin className="h-5 w-5 text-primary" />
-        Job Opportunities by Location
-      </CardTitle>
-      <CardDescription>
-        Cities with the highest number of tech job openings for {selectedSkill}.
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      <div className="mb-6">
-        <Label>Select skill to view location demand</Label>
-        <Select
-          value={selectedSkill}
-          onValueChange={(value) => {
-            setSelectedSkill(value);
-            fetchLocationDemand();
-          }}
-        >
-          <SelectTrigger className="mt-2">
-            <SelectValue placeholder="Select Skill" />
-          </SelectTrigger>
-          <SelectContent>
-            {Array.isArray(topSkills) &&
-              topSkills.map((skill) => (
-                <SelectItem key={skill.name} value={skill.name}>
-                  {skill.name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {loadingLocations ? (
-        <LoadingSpinner />
-      ) : locationDemand &&
-        Array.isArray(locationDemand) &&
-        locationDemand.length > 0 ? (
-        <>
-          <div className="h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={locationDemand}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value, name) => {
-                    if (name === 'jobs') {
-                      return [value.toLocaleString(), 'Job Openings'];
-                    }
-                    return [value, name];
-                  }}
-                />
-                <Bar
-                  dataKey="jobs"
-                  fill="#8B5CF6"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {locationDemand.slice(0, 4).map((location, index) => (
-              <div
-                key={location.name}
-                className="bg-gray-50 p-3 rounded-md text-center"
-              >
-                <div className="text-lg font-bold text-primary">
-                  {location.jobs.toLocaleString()}
-                </div>
-                <div className="text-sm text-gray-600">
-                  Jobs in {location.name}
-                </div>
-               
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="text-center p-8 text-gray-500">
-          No location data available
-        </div>
-      )}
-    </CardContent>
-  </Card>
-</TabsContent>
-
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  Job Opportunities by Location
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Cities with the highest number of tech job openings for{" "}
+                  {selectedSkill}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-2 sm:p-6">
+                {loadingLocations ? (
+                  <LoadingSpinner />
+                ) : locationDemand &&
+                  Array.isArray(locationDemand) &&
+                  locationDemand.length > 0 ? (
+                  <>
+                    <div className="h-[300px] sm:h-[400px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={locationDemand}
+                          layout="vertical"
+                          margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" tick={{ fontSize: 12 }} />
+                          <YAxis
+                            dataKey="name"
+                            type="category"
+                            tick={{ fontSize: 12 }}
+                            width={100}
+                          />
+                          <Tooltip />
+                          <Bar
+                            dataKey="jobs"
+                            fill="#6366F1"
+                            radius={[0, 4, 4, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center p-4 sm:p-8 text-gray-500">
+                    No location data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="industries">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                   <Building className="h-5 w-5 text-primary" />
-                  Industry Distribution of Tech Jobs
+                  Industry Breakdown
                 </CardTitle>
-                <CardDescription>
-                  How tech jobs are distributed across different industries.
+                <CardDescription className="text-sm">
+                  Distribution of job opportunities across different industries.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-2 sm:p-6">
                 {loadingIndustries ? (
                   <LoadingSpinner />
                 ) : industryDistribution &&
                   Array.isArray(industryDistribution) &&
                   industryDistribution.length > 0 ? (
-                  <div className="flex flex-col md:flex-row">
-                    <div className="h-[350px] w-full md:w-1/2">
+                  <>
+                    <div className="h-[300px] sm:h-[400px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={industryDistribution}
                             cx="50%"
                             cy="50%"
-                            innerRadius={60}
-                            outerRadius={120}
+                            labelLine={false}
+                            outerRadius={60} // Fixed value for mobile
                             fill="#8884d8"
-                            paddingAngle={2}
                             dataKey="value"
-                            label={({ name, percent }) =>
-                              `${name} ${(percent * 100).toFixed(0)}%`
-                            }
+                            label={({ name, value }) => `${name}: ${value}%`}
                           >
                             {industryDistribution.map((entry, index) => (
                               <Cell
@@ -721,44 +725,48 @@ const JobMarket = () => {
                       </ResponsiveContainer>
                     </div>
 
-                    <div className="md:w-1/2 p-4">
-                      <h3 className="text-lg font-semibold mb-4">
-                        Industry Insights
-                      </h3>
-                      <div className="space-y-4">
-                        <div className="bg-gray-50 p-3 rounded-md">
-                          <h4 className="font-medium text-primary">
-                            Technology
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            Pure tech companies remain the largest employers of
-                            tech talent, offering competitive salaries and
-                            advancement opportunities.
-                          </p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-md">
-                          <h4 className="font-medium text-primary">Finance</h4>
-                          <p className="text-sm text-gray-600">
-                            Financial institutions are rapidly expanding their
-                            tech teams as digital transformation accelerates in
-                            banking and investment services.
-                          </p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-md">
-                          <h4 className="font-medium text-primary">
-                            Healthcare
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            The healthcare industry shows strong growth in tech
-                            hiring, particularly in telehealth, data analytics,
-                            and medical software development.
-                          </p>
-                        </div>
-                      </div>
+                    {/* For larger screens, you could create a separate component or use state */}
+                    <div className="hidden sm:block h-[400px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={industryDistribution}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={100} // Larger value for desktop
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ name, value }) => `${name}: ${value}%`}
+                          >
+                            {industryDistribution.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
-                  </div>
+
+                    <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs sm:text-sm">
+                      {industryDistribution.map((industry, index) => (
+                        <div key={industry.name} className="flex items-center">
+                          <div
+                            className="w-3 h-3 mr-1 rounded-sm"
+                            style={{
+                              backgroundColor: COLORS[index % COLORS.length],
+                            }}
+                          ></div>
+                          <span>{industry.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 ) : (
-                  <div className="text-center p-8 text-gray-500">
+                  <div className="text-center p-4 sm:p-8 text-gray-500">
                     No industry data available
                   </div>
                 )}
