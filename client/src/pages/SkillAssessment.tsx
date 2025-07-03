@@ -814,7 +814,8 @@ const SkillAssessment: React.FC = () => {
               <RadioGroup
                 className="grid grid-cols-1 sm:grid-cols-3 gap-4"
                 defaultValue="beginner"
-                onValueChange={handleDifficultySelection}
+                value={difficulty}
+                onValueChange={(value) => setDifficulty(value)}
               >
                 <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
                   <RadioGroupItem value="beginner" id="beginner" />
@@ -830,6 +831,22 @@ const SkillAssessment: React.FC = () => {
                 </div>
               </RadioGroup>
             </CardContent>
+            <CardFooter className="flex justify-end p-4 sm:p-6">
+              <Button
+                onClick={() => handleDifficultySelection(difficulty)}
+                disabled={!difficulty}
+                className="w-full sm:w-auto"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading Questions...
+                  </>
+                ) : (
+                  'Continue'
+                )}
+              </Button>
+            </CardFooter>
           </Card>
         )}
 
