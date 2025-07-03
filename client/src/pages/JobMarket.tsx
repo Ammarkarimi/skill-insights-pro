@@ -107,6 +107,7 @@ const JobMarket = () => {
   const [selectedLocation, setSelectedLocation] = useState("all");
   const [selectedSkill, setSelectedSkill] = useState("JavaScript");
   const [activeTab, setActiveTab] = useState("trends");
+  const [chartSize, setChartSize] = useState(window.innerWidth < 640 ? 60 : 100);
 
   // Data state with sample fallback data
   const [skillTrends, setSkillTrends] = useState(sampleSkillTrends);
@@ -153,6 +154,16 @@ const JobMarket = () => {
       setFilteredSkills(topSkills);
     }
   }, [searchTerm, topSkills]);
+
+  // Resize effect for chart
+  useEffect(() => {
+    const handleResize = () => {
+      setChartSize(window.innerWidth < 640 ? 60 : 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Data fetching functions
   const fetchSkillTrends = async () => {
@@ -708,33 +719,7 @@ const JobMarket = () => {
                             cx="50%"
                             cy="50%"
                             labelLine={false}
-                            outerRadius={60} // Fixed value for mobile
-                            fill="#8884d8"
-                            dataKey="value"
-                            label={({ name, value }) => `${name}: ${value}%`}
-                          >
-                            {industryDistribution.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={COLORS[index % COLORS.length]}
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    {/* For larger screens, you could create a separate component or use state */}
-                    <div className="hidden sm:block h-[400px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={industryDistribution}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={100} // Larger value for desktop
+                            outerRadius={chartSize}
                             fill="#8884d8"
                             dataKey="value"
                             label={({ name, value }) => `${name}: ${value}%`}
