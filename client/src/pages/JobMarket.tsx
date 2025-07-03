@@ -38,8 +38,7 @@ import {
   MapPin,
   Building,
   BarChart3,
-  PieChart as PieChartIcon,
-  Loader2,
+  Loader2
 } from "lucide-react";
 import axios from "axios";
 
@@ -118,7 +117,6 @@ const JobMarket = () => {
     sampleIndustryDistribution
   );
 
-  
   // Loading states
   const [loadingTrends, setLoadingTrends] = useState(false);
   const [loadingSkills, setLoadingSkills] = useState(false);
@@ -127,56 +125,6 @@ const JobMarket = () => {
 
   // Error states
   const [errorMessage, setErrorMessage] = useState("");
-  // Add these state variables at the top with other states
-  const [multiSkillData, setMultiSkillData] = useState({});
-  const [loadingMultiSkill, setLoadingMultiSkill] = useState(false);
-
-  // Add this new function
-const fetchMultiSkillAnalysis = async () => {
-  setLoadingMultiSkill(true);
-  try {
-    const skills = topSkills
-      .slice(0, 4)
-      .map((skill) => skill.name)
-      .join(",");
-      
-    console.log('=== MULTI-SKILL ANALYSIS REQUEST ===');
-    console.log('Requesting skills:', skills);
-    
-    const response = await axios.get(
-      "http://localhost:5000/job_recommendations_multi",
-      {
-        params: { skills },
-      }
-    );
-
-    // Add these console.logs
-    console.log('=== MULTI-SKILL API RESPONSE ===');
-    console.log('Full API Response:', response.data);
-    console.log('Response Type:', typeof response.data);
-    console.log('Is Array?', Array.isArray(response.data));
-    
-    // Log each skill's data
-    Object.entries(response.data).forEach(([skill, locations]) => {
-      console.log(`\n--- ${skill} ---`);
-      console.log('Locations data:', locations);
-      console.log('Is locations array?', Array.isArray(locations));
-      if (Array.isArray(locations)) {
-        console.log('First location sample:', locations[0]);
-      }
-    });
-    console.log('=== END MULTI-SKILL ANALYSIS ===');
-
-    setMultiSkillData(response.data);
-    setErrorMessage("");
-  } catch (error) {
-    console.error("Error fetching multi-skill analysis:", error);
-    setErrorMessage("Failed to load multi-skill analysis.");
-  } finally {
-    setLoadingMultiSkill(false);
-  }
-};
-
 
   // Fetch data when component mounts or filters change
   useEffect(() => {
@@ -185,28 +133,24 @@ const fetchMultiSkillAnalysis = async () => {
   }, []);
 
   useEffect(() => {
-  if (activeTab === 'locations') {
-    fetchLocationDemand();
-  } else if (activeTab === 'industries') {
-    fetchIndustryDistribution();
-  } else if (activeTab === 'multi-analysis') {
-    // Auto-load multi-skill analysis when tab is selected
-    if (Object.keys(multiSkillData).length === 0) {
-      fetchMultiSkillAnalysis();
+    if (activeTab === 'locations') {
+      fetchLocationDemand();
+    } else if (activeTab === 'industries') {
+      fetchIndustryDistribution();
     }
-  }
-}, [activeTab]);
+  }, [activeTab]);
 
 
   // Filter skills based on search term
   useEffect(() => {
-    if (searchTerm && Array.isArray(topSkills)) {
-      setFilteredSkills(
-        topSkills.filter((skill) =>
-          skill.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+    // Only filter skills when there's a search term
+    if (searchTerm) {
+      const filtered = topSkills.filter((skill) =>
+        skill.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
+      setFilteredSkills(filtered);
     } else {
+      // When search term is cleared, show all skills
       setFilteredSkills(topSkills);
     }
   }, [searchTerm, topSkills]);
@@ -218,7 +162,8 @@ const fetchMultiSkillAnalysis = async () => {
       const response = await axios.get("/api/job-market", {
         params: {
           type: "trends",
-          skill: selectedSkill,
+          skill: searchTerm || selectedSkill, // Use search term if available
+          location: selectedLocation,
         },
       });
 
@@ -246,6 +191,7 @@ const fetchMultiSkillAnalysis = async () => {
         params: {
           type: "skills",
           location: selectedLocation,
+          search: searchTerm, // Include search term in API request
         },
       });
       // Ensure data is an array with the right format
@@ -253,7 +199,13 @@ const fetchMultiSkillAnalysis = async () => {
         ? response.data
         : sampleTopSkills;
       setTopSkills(skillsData);
-      setFilteredSkills(skillsData);
+      // Apply search filter if term exists
+      const filteredData = searchTerm
+        ? skillsData.filter(skill =>
+            skill.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : skillsData;
+      setFilteredSkills(filteredData);
       setErrorMessage("");
     } catch (error) {
       console.error("Error fetching top skills:", error);
@@ -271,7 +223,9 @@ const fetchMultiSkillAnalysis = async () => {
     // Use your actual job recommendations API
     const response = await axios.get('http://localhost:5000/job_recommendations_multi', {
       params: { 
-        skills: selectedSkill || 'Python,JavaScript,React,AWS'
+        skills: selectedSkill || 'Python,JavaScript,React,AWS',
+        location: selectedLocation !== 'all' ? selectedLocation : undefined,
+        search: searchTerm // Include search term for filtering locations
       }
     });
     
@@ -283,7 +237,14 @@ const fetchMultiSkillAnalysis = async () => {
       averageSalary: item.average_salary || 0
     }));
     
-    setLocationDemand(formattedData);
+    // Filter locations if search term exists
+    const filteredData = searchTerm
+      ? formattedData.filter(location =>
+          location.name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : formattedData;
+    
+    setLocationDemand(filteredData);
     setErrorMessage('');
   } catch (error) {
     console.error('Error fetching location demand:', error);
@@ -303,12 +264,21 @@ const fetchMultiSkillAnalysis = async () => {
         params: {
           type: "industries",
           location: selectedLocation,
+          search: searchTerm, // Include search term for filtering industries
         },
       });
       const industriesData = Array.isArray(response.data)
         ? response.data
         : sampleIndustryDistribution;
-      setIndustryDistribution(industriesData);
+      
+      // Filter industries if search term exists
+      const filteredData = searchTerm
+        ? industriesData.filter(industry =>
+            industry.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : industriesData;
+      
+      setIndustryDistribution(filteredData);
       setErrorMessage("");
     } catch (error) {
       console.error("Error fetching industry distribution:", error);
@@ -322,13 +292,31 @@ const fetchMultiSkillAnalysis = async () => {
   };
 
   const handleApplyFilters = () => {
-    fetchSkillTrends();
-    fetchTopSkills();
+    // Market Trends: Filter by location and search term for skill trends
+    if (activeTab === 'trends') {
+      fetchSkillTrends(); // Will use selectedLocation and searchTerm
+    }
 
-    if (activeTab === "locations") {
-      fetchLocationDemand();
-    } else if (activeTab === "industries") {
-      fetchIndustryDistribution();
+    // In-Demand Skills: Filter by location and search term
+    if (activeTab === 'skills') {
+      fetchTopSkills(); // Will use selectedLocation
+      if (searchTerm) {
+        setFilteredSkills(
+          topSkills.filter((skill) =>
+            skill.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        );
+      }
+    }
+
+    // Location Analysis: Filter by selected skill and location
+    if (activeTab === 'locations') {
+      fetchLocationDemand(); // Will use selectedSkill and selectedLocation
+    }
+
+    // Industry Breakdown: Filter by location and search term for industry focus
+    if (activeTab === 'industries') {
+      fetchIndustryDistribution(); // Will use selectedLocation and searchTerm
     }
   };
 
@@ -366,7 +354,7 @@ const fetchMultiSkillAnalysis = async () => {
               size={18}
             />
             <Input
-              placeholder="Search for a skill..."
+              placeholder="Search skills, locations, or industries..."
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -437,10 +425,6 @@ const fetchMultiSkillAnalysis = async () => {
             <TabsTrigger value="industries" className="flex-1">
               <Building className="mr-2 h-4 w-4" />
               Industry Breakdown
-            </TabsTrigger>
-            <TabsTrigger value="multi-analysis" className="flex-1">
-              <PieChartIcon className="mr-2 h-4 w-4" />
-              Multi-Skill Analysis
             </TabsTrigger>
           </TabsList>
 
@@ -587,26 +571,6 @@ const fetchMultiSkillAnalysis = async () => {
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-
-                    <div className="mt-6">
-                      <Label>Select skill to view detailed trends</Label>
-                      <Select
-                        value={selectedSkill}
-                        onValueChange={setSelectedSkill}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue placeholder="Select Skill" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.isArray(topSkills) &&
-                            topSkills.map((skill) => (
-                              <SelectItem key={skill.name} value={skill.name}>
-                                {skill.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </>
                 ) : (
                   <div className="text-center p-8 text-gray-500">
@@ -629,6 +593,29 @@ const fetchMultiSkillAnalysis = async () => {
       </CardDescription>
     </CardHeader>
     <CardContent>
+      <div className="mb-6">
+        <Label>Select skill to view location demand</Label>
+        <Select
+          value={selectedSkill}
+          onValueChange={(value) => {
+            setSelectedSkill(value);
+            fetchLocationDemand();
+          }}
+        >
+          <SelectTrigger className="mt-2">
+            <SelectValue placeholder="Select Skill" />
+          </SelectTrigger>
+          <SelectContent>
+            {Array.isArray(topSkills) &&
+              topSkills.map((skill) => (
+                <SelectItem key={skill.name} value={skill.name}>
+                  {skill.name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {loadingLocations ? (
         <LoadingSpinner />
       ) : locationDemand &&
@@ -778,69 +765,6 @@ const fetchMultiSkillAnalysis = async () => {
               </CardContent>
             </Card>
           </TabsContent>
-         <TabsContent value="multi-analysis">
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <PieChartIcon className="h-5 w-5 text-primary" />
-        Multi-Skill Job Market Analysis
-      </CardTitle>
-      <CardDescription>
-        Compare job opportunities across multiple skills and locations.
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      <div className="mb-4">
-        <Button 
-          onClick={fetchMultiSkillAnalysis}
-          disabled={loadingMultiSkill}
-          className="bg-primary"
-        >
-          {loadingMultiSkill ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            'Analyze Top Skills'
-          )}
-        </Button>
-      </div>
-      
-      {loadingMultiSkill ? (
-        <LoadingSpinner />
-      ) : Object.keys(multiSkillData).length > 0 ? (
-        <div className="space-y-6">
-          {Object.entries(multiSkillData).map(([skill, locations]) => {
-            const locationArray = Array.isArray(locations) ? locations : [];
-            
-            return (
-              <div key={skill} className="border rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-3 text-primary">{skill}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {locationArray.slice(0, 4).map((location, index) => (
-                    <div key={location?.city || index} className="bg-gray-50 p-3 rounded text-center">
-                      <div className="font-medium">{location?.city || 'Unknown'}</div>
-                      <div className="text-sm text-gray-600">{location?.job_count || 0} jobs</div>
-                      <div className="text-sm text-primary font-medium">
-                        ${location?.average_salary ? (location.average_salary / 1000).toFixed(0) : '0'}K avg
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center p-8 text-gray-500">
-          Click "Analyze Top Skills" to see multi-skill analysis
-        </div>
-      )}
-    </CardContent>
-  </Card>
-</TabsContent>
-
         </Tabs>
       </div>
     </Layout>

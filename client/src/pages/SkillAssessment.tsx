@@ -33,12 +33,12 @@ import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import autoTable from "jspdf-autotable";
 enum AssessmentStage {
-  Upload,
-  Categorization,
-  DifficultySelection,
-  Test,
-  Results,
-  PathRecommendation,
+  Upload = 0,
+  Categorization = 1,
+  DifficultySelection = 2,
+  Test = 3,
+  Results = 4,
+  PathRecommendation = 5
 }
 
 interface Question {
@@ -84,29 +84,28 @@ const SkillAssessment: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
 
+  // Update handleFileUpload function to ensure correct stage transition
   const handleFileUpload = async (files: FileList, extractedInfo?: any) => {
     setIsUploading(true);
-
+  
     try {
       if (extractedInfo && extractedInfo.techStack) {
-        // Process the extracted tech stack
         const techStackList: TechStack[] = extractedInfo.techStack.map(
           (tech: string) => ({
             name: tech,
             selected: true,
           })
         );
-
+  
         setTechStacks(techStackList);
         setCategory(extractedInfo.category || "Technology");
-
+  
         toast({
           title: "Resume Processed Successfully",
           description:
             "Your resume has been analyzed and tech stack extracted.",
         });
       } else {
-        // Fallback if no tech stack was extracted
         setCategory("Technology");
         setTechStacks([
           { name: "JavaScript", selected: true },
@@ -114,13 +113,13 @@ const SkillAssessment: React.FC = () => {
           { name: "Python", selected: true },
           { name: "Machine Learning", selected: false },
         ]);
-
+  
         toast({
           title: "Resume Uploaded Successfully",
           description: "Your resume has been categorized as Technology.",
         });
       }
-
+  
       setResumeUploaded(true);
       setStage(AssessmentStage.Categorization);
     } catch (error) {
@@ -150,6 +149,10 @@ const SkillAssessment: React.FC = () => {
         .filter((tech) => tech.selected)
         .map((tech) => tech.name);
 
+      if (selectedTechs.length === 0) {
+        throw new Error("Please select at least one technology");
+      }
+
       // Call the API with tech stack and difficulty parameters
       const queryParams = new URLSearchParams({
         difficulty: difficulty,
@@ -157,25 +160,31 @@ const SkillAssessment: React.FC = () => {
       });
 
       const response = await fetch(
-        `http://127.0.0.1:5000/generate_mcqs?${queryParams}`
+        `http://127.0.0.1:5000/generate_mcqs?${queryParams}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          signal: AbortSignal.timeout(30000) // 30 second timeout
+        }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch questions");
+        throw new Error(`Failed to fetch questions: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log(data.mcqs);
+      
       // Parse the response and format questions
       let parsedQuestions: Question[] = [];
 
       if (data && data.mcqs) {
         try {
           let mcqsArray = data.mcqs;
-          // Debug: log the type
-          // console.log('typeof data.mcqs:', typeof mcqsArray, mcqsArray);
+          
           if (typeof mcqsArray === 'string') {
-            // Remove markdown code block if present (only once)
+            // Remove markdown code block if present
             let trimmed = mcqsArray.trim();
             if (trimmed.startsWith('```json')) {
               trimmed = trimmed.replace(/^```json/, '').replace(/```$/, '').trim();
@@ -184,72 +193,121 @@ const SkillAssessment: React.FC = () => {
             }
             mcqsArray = JSON.parse(trimmed);
           }
+
           if (!Array.isArray(mcqsArray)) {
-            console.error('data.mcqs is not an array after parsing:', mcqsArray);
-            mcqsArray = [];
+            throw new Error('Received data is not in the expected format');
           }
+
+          if (mcqsArray.length === 0) {
+            throw new Error('No questions received from the server');
+          }
+
           parsedQuestions = mcqsArray.map((q, index) => ({
             ...q,
-            id: index + 1
+            id: index + 1,
+            options: q.options || {},
+            answer: q.answer || ''
           }));
+
+          // Validate questions format
+          const invalidQuestions = parsedQuestions.filter(q => 
+            !q.question || 
+            !q.options || 
+            Object.keys(q.options).length === 0 || 
+            !q.answer
+          );
+
+          if (invalidQuestions.length > 0) {
+            throw new Error('Some questions are missing required fields');
+          }
+
         } catch (parseError) {
           console.error("Error parsing questions:", parseError);
-          toast({
-            title: "Error parsing questions",
-            description:
-              "There was an error processing the questions from the server.",
-            variant: "destructive",
-          });
+          throw new Error("Failed to process the questions from the server");
         }
+      } else {
+        throw new Error("No questions data received from the server");
       }
 
       setQuestions(parsedQuestions);
-      setIsLoading(false);
+      setCurrentQuestionIndex(0); // Reset to first question
+      setSelectedAnswers({}); // Clear any previous answers
+      
+      return true; // Indicate successful fetch
+
     } catch (error) {
       console.error("Error fetching questions:", error);
-      setIsLoading(false);
+      
       toast({
-        title: "Error fetching questions",
-        description:
-          "There was an error loading the assessment questions. Please try again.",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load questions. Please try again.",
         variant: "destructive",
       });
 
-      // Fallback to sample questions in case of API failure
-      const fallbackQuestions = [
-        {
-          id: 1,
-          question: "What is the primary purpose of a RESTful API?",
-          options: {
-            A: "To provide a graphical user interface",
-            B: "To enable communication between different systems over the internet",
-            C: "To store data in a SQL database",
-            D: "To manage server hardware resources",
+      // Use fallback questions only in development environment
+      if (process.env.NODE_ENV === 'development') {
+        const fallbackQuestions = [
+          {
+            id: 1,
+            question: "What is the primary purpose of a RESTful API?",
+            options: {
+              A: "To provide a graphical user interface",
+              B: "To enable communication between different systems over the internet",
+              C: "To store data in a SQL database",
+              D: "To manage server hardware resources",
+            },
+            answer: "B",
           },
-          answer: "B",
-        },
-        {
-          id: 2,
-          question: "Which of the following is NOT a JavaScript framework?",
-          options: {
-            A: "React",
-            B: "Angular",
-            C: "Vue",
-            D: "Flask",
+          {
+            id: 2,
+            question: "Which of the following is NOT a JavaScript framework?",
+            options: {
+              A: "React",
+              B: "Angular",
+              C: "Vue",
+              D: "Flask",
+            },
+            answer: "D",
           },
-          answer: "D",
-        },
-        // ... keeping a few fallback questions
-      ];
+        ];
 
-      setQuestions(fallbackQuestions);
+        setQuestions(fallbackQuestions);
+        return true; // Allow continuing with fallback questions in development
+      }
+
+      setQuestions([]);
+      return false; // Indicate fetch failure
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleDifficultySelection = (difficultyLevel: string) => {
+  // Update stage transitions in the component
+  const handleCategoryConfirm = () => {
+    const selectedTechs = techStacks.filter(tech => tech.selected);
+    if (selectedTechs.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one technology.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setStage(AssessmentStage.DifficultySelection);
+  };
+
+  const handleDifficultySelection = async (difficultyLevel: string) => {
     setDifficulty(difficultyLevel);
-    fetchQuestionsFromAPI();
-    setStage(AssessmentStage.Test);
+    const success = await fetchQuestionsFromAPI();
+    if (success && questions.length > 0) {
+      setStage(AssessmentStage.Test);
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to load questions. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAnswerSelection = (questionId: number, answer: string) => {
@@ -260,29 +318,18 @@ const SkillAssessment: React.FC = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
-      // Complete test
+      // Complete test and calculate results
       setIsLoading(true);
-
-      // Calculate score based on correct answers
-      setTimeout(() => {
-        let correctAnswers = 0;
-
-        questions.forEach((question) => {
-          if (
-            question.id !== undefined &&
-            selectedAnswers[question.id] === question.answer
-          ) {
-            correctAnswers++;
-          }
-        });
-
-        const scoreValue = Math.round(
-          (correctAnswers / questions.length) * 100
-        );
-        setScore(scoreValue);
-        setIsLoading(false);
-        setStage(AssessmentStage.Results);
-      }, 2000);
+      let correctAnswers = 0;
+      questions.forEach((question) => {
+        if (question.id !== undefined && selectedAnswers[question.id] === question.answer) {
+          correctAnswers++;
+        }
+      });
+      const scoreValue = Math.round((correctAnswers / questions.length) * 100);
+      setScore(scoreValue);
+      setIsLoading(false);
+      setStage(AssessmentStage.Results);
     }
   };
 
@@ -307,6 +354,15 @@ const SkillAssessment: React.FC = () => {
 
   // Updated handlePathRecommendation function
   const handlePathRecommendation = async () => {
+    if (!score || !difficulty || questions.length === 0) {
+      toast({
+        title: "Error",
+        description: "Missing assessment data. Please complete the assessment first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -314,6 +370,10 @@ const SkillAssessment: React.FC = () => {
       const selectedTechs = techStacks
         .filter((tech) => tech.selected)
         .map((tech) => tech.name);
+
+      if (selectedTechs.length === 0) {
+        throw new Error("No technologies selected. Please select at least one technology.");
+      }
 
       // Get question and user answers with correct/incorrect status
       const questionAnswers = questions.map((question) => {
@@ -329,45 +389,73 @@ const SkillAssessment: React.FC = () => {
         };
       });
 
+      // Validate that all questions have been answered
+      const unansweredQuestions = questionAnswers.filter(qa => !qa.userAnswer);
+      if (unansweredQuestions.length > 0) {
+        throw new Error("Please answer all questions before generating the learning path.");
+      }
+
       // Send data to backend for path recommendation
-      try {
-        const response = await fetch(
-          "http://127.0.0.1:5000/generate_learning_path",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              score,
-              difficulty,
-              techStack: selectedTechs,
-              questionAnswers,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to get path recommendations");
+      const response = await fetch(
+        "http://127.0.0.1:5000/generate_learning_path",
+        {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            score,
+            difficulty,
+            techStack: selectedTechs,
+            questionAnswers,
+          }),
+          signal: AbortSignal.timeout(30000) // 30 second timeout
         }
+      );
 
-        const data: LearningPathResponse = await response.json();
+      if (!response.ok) {
+        throw new Error(`Failed to get path recommendations: ${response.statusText}`);
+      }
 
-        // Fixed: Set learningPath directly as array
-        if (data && Array.isArray(data.learningPath)) {
-          setLearningPath(data.learningPath);
-        } else {
-          throw new Error("Invalid learning path data structure");
+      const data = await response.json();
+
+      // Validate learning path data
+      if (!data || !data.learningPath || !Array.isArray(data.learningPath)) {
+        throw new Error("Invalid learning path data received from server");
+      }
+
+      // Validate each resource in the learning path
+      const validatedPath = data.learningPath.map((resource, index) => {
+        if (!resource.title || !resource.type || !resource.link || !resource.description) {
+          console.warn(`Invalid resource at index ${index}:`, resource);
+          return {
+            title: resource.title || "Resource " + (index + 1),
+            type: resource.type || "other",
+            link: resource.link || "#",
+            description: resource.description || "No description available."
+          };
         }
-      } catch (error) {
-        console.error("Error generating learning path:", error);
-        toast({
-          title: "Error",
-          description:
-            "Failed to generate learning path recommendations. Using fallback path.",
-          variant: "destructive",
-        });
+        return resource;
+      });
 
-        // Fallback learning path as array
-        setLearningPath([
+      setLearningPath(validatedPath);
+      setStage(AssessmentStage.PathRecommendation);
+
+    } catch (error) {
+      console.error("Error generating learning path:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate learning path";
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+
+      // Only use fallback in development environment
+      if (process.env.NODE_ENV === 'development') {
+        const fallbackPath = [
           {
             title: "Fundamentals Refresher",
             type: "course",
@@ -386,10 +474,11 @@ const SkillAssessment: React.FC = () => {
             link: "https://example.com/advanced",
             description: "Deepen your understanding with specialized topics.",
           },
-        ]);
-      }
+        ];
 
-      setStage(AssessmentStage.PathRecommendation);
+        setLearningPath(fallbackPath);
+        setStage(AssessmentStage.PathRecommendation);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -414,94 +503,138 @@ const SkillAssessment: React.FC = () => {
       const margin = 20;
       let yPosition = 20;
 
-      // Add title
-      doc.setFontSize(22);
+      // Add title and logo
+      doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
-      doc.text("Personalized Learning Path", pageWidth / 2, yPosition, {
+      doc.text("Skill Assessment Report", pageWidth / 2, yPosition, {
         align: "center",
       });
-      yPosition += 15;
+      yPosition += 25;
 
-      // Add assessment info
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Assessment Score: ${score}%`, margin, yPosition);
-      yPosition += 8;
-      doc.text(`Difficulty Level: ${difficulty}`, margin, yPosition);
-      yPosition += 8;
-
-      // Add selected tech stacks
-      const selectedTechs = techStacks
-        .filter((tech) => tech.selected)
-        .map((tech) => tech.name)
-        .join(", ");
-
-      doc.text(`Selected Technologies: ${selectedTechs}`, margin, yPosition);
-      yPosition += 15;
-
-      // Add description
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "italic");
-      const description =
-        "Based on your assessment, here's a customized learning path to help strengthen your skills.";
-
-      const splitDescription = doc.splitTextToSize(
-        description,
-        pageWidth - 2 * margin
-      );
-
-      doc.text(splitDescription, margin, yPosition);
-      yPosition += splitDescription.length * 8 + 15;
-
-      // Add resources heading
-      doc.setFontSize(18);
+      // Add assessment summary section
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("Recommended Resources", margin, yPosition);
+      doc.text("Assessment Summary", margin, yPosition);
       yPosition += 10;
 
-      // Add resources table using the imported autoTable function
+      // Add assessment details in a structured format
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      const summaryData = [
+        ["Score", `${score}%`],
+        ["Difficulty Level", difficulty],
+        ["Technologies", techStacks.filter(tech => tech.selected).map(tech => tech.name).join(", ")]
+      ];
+
+      autoTable(doc, {
+        startY: yPosition,
+        body: summaryData,
+        theme: 'plain',
+        styles: { fontSize: 12 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 40 },
+          1: { cellWidth: 130 }
+        },
+      });
+
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+
+      // Add performance analysis section
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Performance Analysis", margin, yPosition);
+      yPosition += 10;
+
+      // Add analysis text
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      const analysis = score >= 70 ? 
+        "You've demonstrated strong proficiency in the assessed skills. The recommended resources will help you further advance your expertise." :
+        "There's room for improvement in some areas. The recommended resources will help strengthen your foundation and build advanced skills.";
+
+      const splitAnalysis = doc.splitTextToSize(analysis, pageWidth - 2 * margin);
+      doc.text(splitAnalysis, margin, yPosition);
+      yPosition += splitAnalysis.length * 8 + 20;
+
+      // Add learning path section
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Personalized Learning Path", margin, yPosition);
+      yPosition += 10;
+
+      // Add resources in a structured table
       const resourcesData = learningPath.map((resource) => [
         resource.title,
         resource.type,
-        resource.description,
-        resource.link,
+        resource.description
       ]);
 
-      // Use autoTable as a function instead of a method
       autoTable(doc, {
         startY: yPosition,
-        head: [["Title", "Type", "Description", "Link"]],
+        head: [["Resource", "Type", "Description"]],
         body: resourcesData,
-        margin: { top: 15, right: margin, bottom: 15, left: margin },
-        styles: { overflow: "linebreak", cellPadding: 5 },
-        columnStyles: {
-          0: { cellWidth: 40 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 80 },
-          3: { cellWidth: 45 },
+        styles: { 
+          overflow: "linebreak", 
+          cellPadding: 5,
+          fontSize: 11
         },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        columnStyles: {
+          0: { cellWidth: 50, fontStyle: 'bold' },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 110 }
+        },
+        headStyles: { 
+          fillColor: [41, 128, 185], 
+          textColor: 255,
+          fontSize: 12,
+          fontStyle: 'bold'
+        },
       });
 
-      // Get the final Y position after the table
-      const finalY = (doc as any).lastAutoTable?.finalY + 20 || yPosition + 100;
+      // Add resource links section
+      yPosition = (doc as any).lastAutoTable.finalY + 15;
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Resource Links", margin, yPosition);
+      yPosition += 8;
+
+      // Add links in a separate table
+      const linkData = learningPath.map((resource) => [
+        resource.title,
+        resource.link
+      ]);
+
+      autoTable(doc, {
+        startY: yPosition,
+        body: linkData,
+        theme: 'plain',
+        styles: { 
+          fontSize: 10,
+          textColor: [0, 0, 238]
+        },
+        columnStyles: {
+          0: { cellWidth: 50, fontStyle: 'bold' },
+          1: { cellWidth: 140 }
+        },
+      });
 
       // Add footer
+      const finalY = (doc as any).lastAutoTable.finalY + 20;
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(
-        `Generated on ${new Date().toLocaleDateString()} - Skill Assessment Platform`,
+        `Generated on ${new Date().toLocaleDateString()} | Skill Assessment Platform`,
         pageWidth / 2,
         finalY,
         { align: "center" }
       );
 
       // Download the PDF
-      doc.save(`learning-path-${new Date().getTime()}.pdf`);
+      doc.save(`skill-assessment-report-${new Date().getTime()}.pdf`);
 
       toast({
         title: "Download Complete",
-        description: "Your learning path has been downloaded successfully.",
+        description: "Your assessment report has been downloaded successfully.",
       });
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -555,40 +688,50 @@ const SkillAssessment: React.FC = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
-        <h1 className="page-header">Skill Assessment</h1>
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-6">Skill Assessment</h1>
 
-        <div className="mb-8">
+        <div className="mb-8 w-full">
           <Progress value={(stage + 1) * (100 / 6)} className="h-2" />
-          <div className="flex justify-between text-sm text-gray-500 mt-2">
-            <span>Upload Resume</span>
-            <span>Categorization</span>
-            <span>Difficulty</span>
-            <span>Assessment</span>
-            <span>Results</span>
-            <span>Path</span>
+          <div className="flex justify-between items-center mt-4">
+            {[
+              { stage: AssessmentStage.Upload, label: "Upload", icon: <FileQuestion className="h-4 w-4" /> },
+              { stage: AssessmentStage.Categorization, label: "Category", icon: <Cpu className="h-4 w-4" /> },
+              { stage: AssessmentStage.DifficultySelection, label: "Difficulty", icon: <AlertTriangle className="h-4 w-4" /> },
+              { stage: AssessmentStage.Test, label: "Test", icon: <BookOpen className="h-4 w-4" /> },
+              { stage: AssessmentStage.Results, label: "Results", icon: <Check className="h-4 w-4" /> },
+              { stage: AssessmentStage.PathRecommendation, label: "Path", icon: <ArrowRight className="h-4 w-4" /> }
+            ].map((item, index) => (
+              <div key={index} className="relative flex flex-col items-center">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center ${stage >= item.stage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}
+                >
+                  {item.icon}
+                </div>
+                <span className="text-xs mt-2 text-gray-600">{item.label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
         {stage === AssessmentStage.Upload && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Your Resume</CardTitle>
-              <CardDescription>
-                We'll analyze your resume to identify your skills and suggest an
-                appropriate assessment.
+          <Card className="w-full">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-xl sm:text-2xl text-center">Upload Your Resume</CardTitle>
+              <CardDescription className="text-center">
+                We'll analyze your resume to identify your skills and suggest an appropriate assessment.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 sm:p-6">
               <FileUpload
                 onFileUpload={handleFileUpload}
                 acceptedTypes=".pdf,.docx,.doc"
                 extractTechStack={true}
               />
             </CardContent>
-            <CardFooter className="justify-between">
+            <CardFooter className="flex justify-center p-4 sm:p-6">
               {isUploading ? (
-                <Button disabled>
+                <Button disabled className="w-full sm:w-auto">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Uploading...
                 </Button>
@@ -596,6 +739,7 @@ const SkillAssessment: React.FC = () => {
                 <Button
                   onClick={() => setStage(AssessmentStage.Categorization)}
                   disabled={!resumeUploaded && stage === AssessmentStage.Upload}
+                  className="w-full sm:w-auto"
                 >
                   {resumeUploaded ? "Continue" : "Please Upload Your Resume"}
                 </Button>
@@ -605,47 +749,41 @@ const SkillAssessment: React.FC = () => {
         )}
 
         {stage === AssessmentStage.Categorization && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Resume Analysis Complete</CardTitle>
-              <CardDescription>
-                Based on your resume, we've identified your primary skill
-                category and tech stack.
+          <Card className="w-full">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-xl sm:text-2xl text-center">Resume Analysis Complete</CardTitle>
+              <CardDescription className="text-center">
+                Based on your resume, we've identified your primary skill category and tech stack.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Alert className="mb-6 bg-blue-50">
-                <AlertTitle className="text-blue-700 flex items-center">
+            <CardContent className="p-4 sm:p-6 space-y-6">
+              <Alert className="bg-blue-50">
+                <AlertTitle className="text-blue-700 flex items-center justify-center sm:justify-start">
                   <Check className="h-4 w-4 mr-2" />
                   Skill Category Identified
                 </AlertTitle>
-                <AlertDescription className="text-blue-600">
-                  Your resume has been analyzed and your primary skill category
-                  is <strong>{category}</strong>.
+                <AlertDescription className="text-blue-600 text-center sm:text-left">
+                  Your resume has been analyzed and your primary skill category is <strong>{category}</strong>.
                 </AlertDescription>
               </Alert>
 
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-3">
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-center sm:text-left">
                   Detected Tech Stack
                 </h3>
-                <p className="text-gray-700 mb-4">
-                  We've identified the following technologies in your resume.
-                  Please confirm or adjust:
+                <p className="text-gray-700 text-center sm:text-left">
+                  We've identified the following technologies in your resume. Please confirm or adjust:
                 </p>
 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {techStacks.map((tech, index) => (
-                    <div key={index} className="flex items-center space-x-2">
+                    <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
                       <Checkbox
                         id={`tech-${index}`}
                         checked={tech.selected}
                         onCheckedChange={() => toggleTechStack(index)}
                       />
-                      <Label
-                        htmlFor={`tech-${index}`}
-                        className="flex items-center"
-                      >
+                      <Label htmlFor={`tech-${index}`} className="flex items-center cursor-pointer">
                         <Cpu className="h-4 w-4 mr-2 text-gray-500" />
                         {tech.name}
                       </Label>
@@ -653,28 +791,8 @@ const SkillAssessment: React.FC = () => {
                   ))}
                 </div>
               </div>
-
-              <div>
-                <h3 className="text-lg font-medium mb-3">Skill Category</h3>
-                <Tabs defaultValue={category.toLowerCase()} className="w-full">
-                  <TabsList className="w-full mb-4">
-                    <TabsTrigger value="technology" className="flex-1">
-                      Technology
-                    </TabsTrigger>
-                    <TabsTrigger value="business" className="flex-1">
-                      Business
-                    </TabsTrigger>
-                    <TabsTrigger value="design" className="flex-1">
-                      Design
-                    </TabsTrigger>
-                    <TabsTrigger value="other" className="flex-1">
-                      Other
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="justify-between">
               <Button
                 onClick={() => setStage(AssessmentStage.DifficultySelection)}
               >
@@ -685,387 +803,194 @@ const SkillAssessment: React.FC = () => {
         )}
 
         {stage === AssessmentStage.DifficultySelection && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Select Difficulty Level</CardTitle>
-              <CardDescription>
-                Choose the difficulty level for your skill assessment based on
-                your experience.
+          <Card className="w-full">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-xl sm:text-2xl text-center">Select Difficulty Level</CardTitle>
+              <CardDescription className="text-center">
+                Choose the difficulty level for your assessment.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="mb-4">
-                <h3 className="text-sm font-medium mb-2">
-                  Selected Tech Stack
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {techStacks
-                    .filter((tech) => tech.selected)
-                    .map((tech, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="flex items-center gap-1"
-                      >
-                        <Cpu className="h-3 w-3" />
-                        {tech.name}
-                      </Badge>
-                    ))}
-                </div>
-              </div>
-
+            <CardContent className="p-4 sm:p-6">
               <RadioGroup
-                className="space-y-4"
-                value={difficulty}
-                onValueChange={setDifficulty}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+                defaultValue="beginner"
+                onValueChange={handleDifficultySelection}
               >
-                <div className="flex items-start space-x-3 border p-4 rounded-md hover:bg-gray-50">
+                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
                   <RadioGroupItem value="beginner" id="beginner" />
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="beginner" className="font-bold">
-                      Beginner
-                    </Label>
-                    <p className="text-sm text-gray-500">
-                      0-2 years of experience. Fundamental concepts and basic
-                      applications.
-                    </p>
-                  </div>
+                  <Label htmlFor="beginner">Beginner</Label>
                 </div>
-
-                <div className="flex items-start space-x-3 border p-4 rounded-md hover:bg-gray-50">
+                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
                   <RadioGroupItem value="intermediate" id="intermediate" />
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="intermediate" className="font-bold">
-                      Intermediate
-                    </Label>
-                    <p className="text-sm text-gray-500">
-                      2-5 years of experience. Advanced concepts and practical
-                      implementation.
-                    </p>
-                  </div>
+                  <Label htmlFor="intermediate">Intermediate</Label>
                 </div>
-
-                <div className="flex items-start space-x-3 border p-4 rounded-md hover:bg-gray-50">
+                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
                   <RadioGroupItem value="advanced" id="advanced" />
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="advanced" className="font-bold">
-                      Advanced
-                    </Label>
-                    <p className="text-sm text-gray-500">
-                      5+ years of experience. Expert-level concepts and complex
-                      problem-solving.
-                    </p>
-                  </div>
+                  <Label htmlFor="advanced">Advanced</Label>
                 </div>
               </RadioGroup>
             </CardContent>
-            <CardFooter className="justify-between">
-              <Button
-                variant="outline"
-                onClick={() => setStage(AssessmentStage.Categorization)}
-              >
-                Back
-              </Button>
-              <Button
-                onClick={() => handleDifficultySelection(difficulty)}
-                disabled={!difficulty}
-              >
-                Start Assessment
-              </Button>
-            </CardFooter>
           </Card>
         )}
 
         {stage === AssessmentStage.Test && (
-          <Card>
-            {isLoading ? (
-              <CardContent className="py-8 flex flex-col items-center justify-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-gray-600">
-                  Loading your assessment questions...
-                </p>
-              </CardContent>
-            ) : questions.length > 0 ? (
-              <>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>
-                      Question {currentQuestionIndex + 1} of {questions.length}
-                    </CardTitle>
-                    <span className="text-sm text-gray-500">
-                      {Math.round(
-                        ((currentQuestionIndex + 1) / questions.length) * 100
-                      )}
-                      % Complete
-                    </span>
+          <Card className="w-full">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-xl sm:text-2xl text-center">
+                Question {currentQuestionIndex + 1} of {questions.length}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 space-y-6">
+              {questions[currentQuestionIndex] && (
+                <div className="space-y-6">
+                  <div className="text-lg font-medium text-center sm:text-left">
+                    {questions[currentQuestionIndex].question}
                   </div>
-                  <Progress
-                    value={
-                      ((currentQuestionIndex + 1) / questions.length) * 100
+                  {questions[currentQuestionIndex].code && (
+                    <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                      {questions[currentQuestionIndex].code}
+                    </pre>
+                  )}
+                  <RadioGroup
+                    value={selectedAnswers[questions[currentQuestionIndex].id || 0] || ""}
+                    onValueChange={(value) =>
+                      handleAnswerSelection(
+                        questions[currentQuestionIndex].id || 0,
+                        value
+                      )
                     }
-                    className="h-2"
-                  />
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-6">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-medium whitespace-pre-line mb-2">
-                        {questions[currentQuestionIndex]?.question}
-                      </h3>
-                      {questions[currentQuestionIndex]?.code && questions[currentQuestionIndex].code.trim() !== "" && (
-                        <pre className="bg-gray-100 p-3 rounded text-sm overflow-x-auto">
-                          <code>{questions[currentQuestionIndex].code}</code>
-                        </pre>
-                      )}
-                    </div>
-
-                    <RadioGroup
-                      value={
-                        questions[currentQuestionIndex]?.id !== undefined
-                          ? selectedAnswers[
-                              questions[currentQuestionIndex].id!
-                            ] || ""
-                          : ""
-                      }
-                      onValueChange={(value) =>
-                        questions[currentQuestionIndex]?.id !== undefined &&
-                        handleAnswerSelection(
-                          questions[currentQuestionIndex].id!,
-                          value
-                        )
-                      }
-                      className="space-y-3"
-                    >
-                      {renderOptions(questions[currentQuestionIndex])}
-                    </RadioGroup>
-                  </div>
-                </CardContent>
-                <CardFooter className="justify-between">
-                  <Button
-                    variant="outline"
-                    onClick={handlePreviousQuestion}
-                    disabled={currentQuestionIndex === 0}
+                    className="space-y-3"
                   >
-                    Previous
-                  </Button>
-                  <Button
-                    onClick={handleNextQuestion}
-                    disabled={
-                      !questions[currentQuestionIndex]?.id ||
-                      !selectedAnswers[questions[currentQuestionIndex].id!]
-                    }
-                  >
-                    {currentQuestionIndex === questions.length - 1
-                      ? "Finish"
-                      : "Next"}
-                  </Button>
-                </CardFooter>
-              </>
-            ) : (
-              <CardContent className="py-8 text-center">
-                <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">
-                  No Questions Available
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  We couldn't load any questions for your assessment. Please try
-                  again or contact support.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => setStage(AssessmentStage.DifficultySelection)}
-                >
-                  Go Back
-                </Button>
-              </CardContent>
-            )}
+                    {renderOptions(questions[currentQuestionIndex])}
+                  </RadioGroup>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex flex-col sm:flex-row justify-between gap-4 p-4 sm:p-6">
+              <Button
+                onClick={handlePreviousQuestion}
+                disabled={currentQuestionIndex === 0}
+                variant="outline"
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Previous
+              </Button>
+              <Button
+                onClick={handleNextQuestion}
+                className="w-full sm:w-auto order-1 sm:order-2"
+              >
+                {currentQuestionIndex === questions.length - 1 ? "Finish" : "Next"}
+              </Button>
+            </CardFooter>
           </Card>
         )}
 
         {stage === AssessmentStage.Results && (
-          <Card>
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Assessment Results</CardTitle>
-              <CardDescription>
-                Your technology skills assessment is complete. Here's how you
-                performed.
+          <Card className="w-full">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-xl sm:text-2xl text-center">Assessment Results</CardTitle>
+              <CardDescription className="text-center">
+                Here's how you performed in your assessment.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex flex-col items-center py-8">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                  <p className="text-gray-600">Calculating your results...</p>
+            <CardContent className="p-4 sm:p-6 space-y-6">
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div className="text-4xl sm:text-6xl font-bold text-blue-600">
+                  {score}%
                 </div>
-              ) : (
-                <div className="text-center">
-                  <div className="w-48 h-48 flex items-center justify-center rounded-full bg-gray-100 mx-auto mb-6">
-                    <div className="text-4xl font-bold text-primary">
-                      {score}%
-                    </div>
-                  </div>
+                <p className="text-gray-600 text-center">
+                  You've completed the {difficulty} level assessment
+                </p>
+              </div>
 
-                  <h3 className="text-xl font-semibold mb-2">
-                    {score && score >= 80
-                      ? "Excellent!"
-                      : score && score >= 60
-                      ? "Good Job!"
-                      : "Keep Learning!"}
-                  </h3>
-
-                  <p className="text-gray-600 mb-6">
-                    {score && score >= 80
-                      ? "You've demonstrated advanced knowledge in your field. You're ready for expert-level positions."
-                      : score && score >= 60
-                      ? "You have a solid foundation of skills. Consider focusing on specific areas to enhance your expertise."
-                      : "You're on the right track. Continue building your skills with focused learning and practice."}
-                  </p>
-
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-blue-800 mb-2">
-                      Next Steps Recommendation
-                    </h4>
-                    <p className="text-blue-600 text-sm">
-                      Based on your performance, we recommend exploring our
-                      personalized path recommendations to enhance your skills
-                      in Technology.
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Button
+                  onClick={handleRestart}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Take Another Assessment
+                </Button>
+                <Button
+                  onClick={handlePathRecommendation}
+                  className="w-full"
+                >
+                  Get Learning Path
+                </Button>
+              </div>
             </CardContent>
-            <CardFooter className="justify-between">
-              <Button variant="outline" onClick={handleRestart}>
-                Start New Assessment
-              </Button>
-              <Button onClick={handlePathRecommendation}>
-                Path Recommendation
-              </Button>
-            </CardFooter>
           </Card>
         )}
 
         {stage === AssessmentStage.PathRecommendation && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">
-                Personalized Learning Path
-              </CardTitle>
-              <CardDescription>
-                Based on your assessment, we've created a customized learning
-                path to help strengthen your skills.
+          <Card className="w-full">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-xl sm:text-2xl text-center">Your Learning Path</CardTitle>
+              <CardDescription className="text-center">
+                Based on your assessment results, here's your personalized learning path.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 sm:p-6 space-y-6">
               {isLoading ? (
-                <div className="flex flex-col items-center py-8">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                  <p className="text-gray-600">
-                    Generating your personalized learning path...
-                  </p>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
+                  <p className="text-gray-600">Generating your learning path...</p>
+                </div>
+              ) : learningPath ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {learningPath.map((resource, index) => (
+                      <Card key={index} className="flex flex-col h-full">
+                        <CardHeader>
+                          <div className="flex items-center space-x-2">
+                            {getResourceIcon(resource.type)}
+                            <CardTitle className="text-lg">{resource.title}</CardTitle>
+                          </div>
+                          <Badge variant="secondary" className="w-fit">
+                            {resource.type}
+                          </Badge>
+                        </CardHeader>
+                        <CardContent className="flex-grow">
+                          <p className="text-gray-600">{resource.description}</p>
+                        </CardContent>
+                        <CardFooter>
+                          <a
+                            href={resource.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline w-full text-center"
+                          >
+                            View Resource
+                          </a>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row justify-center gap-4">
+                    <Button
+                      onClick={downloadLearningPath}
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      disabled={isDownloading}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      {isDownloading ? "Downloading..." : "Download Path"}
+                    </Button>
+                    <Button
+                      onClick={handleRestart}
+                      className="w-full sm:w-auto"
+                    >
+                      Start New Assessment
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <div>
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold mb-3">Overview</h3>
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="bg-blue-50 p-4 rounded-lg text-center">
-                        <p className="text-sm text-gray-500">Score</p>
-                        <p className="text-xl font-bold text-blue-700">
-                          {score}%
-                        </p>
-                      </div>
-                      <div className="bg-green-50 p-4 rounded-lg text-center">
-                        <p className="text-sm text-gray-500">Level</p>
-                        <p className="text-xl font-bold text-green-700">
-                          {difficulty || "Intermediate"}
-                        </p>
-                      </div>
-                      <div className="bg-purple-50 p-4 rounded-lg text-center">
-                        <p className="text-sm text-gray-500">Focus Area</p>
-                        <p className="text-xl font-bold text-purple-700">
-                          {techStacks.filter((t) => t.selected)[0]?.name ||
-                            "Technology"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold">
-                      Recommended Resources
-                    </h3>
-
-                    {learningPath && learningPath.length > 0 ? (
-                      learningPath.map((resource, index) => (
-                        <div
-                          key={index}
-                          className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1">
-                              {getResourceIcon(resource.type)}
-                            </div>
-                            <div>
-                              <h4 className="text-md font-medium">
-                                {resource.title}
-                              </h4>
-                              <p className="text-sm text-gray-600 mb-2">
-                                {resource.description}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline">{resource.type}</Badge>
-                                <a
-                                  href={resource.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                >
-                                  View Resource{" "}
-                                  <ArrowRight className="h-3 w-3" />
-                                </a>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-6 text-gray-500">
-                        <AlertTriangle className="h-12 w-12 mx-auto text-amber-500 mb-2" />
-                        <p>
-                          No specific resources found. Please try again or
-                          contact support.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                <div className="text-center py-8">
+                  <p className="text-gray-600">No learning path available.</p>
                 </div>
               )}
             </CardContent>
-            <CardFooter className="justify-between">
-              <Button variant="outline" onClick={handleRestart}>
-                Start New Assessment
-              </Button>
-              <Button
-                onClick={downloadLearningPath}
-                disabled={
-                  isDownloading || !learningPath || learningPath.length === 0
-                }
-                className="flex items-center gap-2"
-              >
-                {isDownloading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Preparing Download...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" />
-                    Download Learning Path
-                  </>
-                )}
-              </Button>
-            </CardFooter>
           </Card>
         )}
       </div>
