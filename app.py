@@ -399,7 +399,7 @@ User query: {query}
  
  
     # Create the model instance (ensure the library you're using is working as expected)
-    model = ChatGoogleGenerativeAI(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00",model="gemini-1.5-flash", temperature=0.3)
+    model = ChatGoogleGenerativeAI(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ",model="gemini-1.5-flash", temperature=0.3)
  
     # Get the response from the model
     response = model.invoke(prompt_template)
@@ -458,7 +458,7 @@ def similarity_checker_tfidf(job_description, resumes_folder):
  
  
 # Configure the API key for Google Generative AI
-genai.configure(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
+genai.configure(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
  
 def extract_text_from_docx(file_bytes):
     """Extract text from a .docx file using python-docx"""
@@ -754,7 +754,7 @@ def upload_resumes():
 # # Define a route to generate the MCQs
 @app.route('/generate_mcqs', methods=['GET'])
 def generate_mcqs():
-    genai.configure(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
+    genai.configure(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
     try:
  
         difficulty = request.args.get('difficulty', 'medium')
@@ -806,7 +806,7 @@ def generate_mcqs():
 @app.route('/extract_tech_stack', methods=['POST'])
 def extract_tech_stack():
     try:
-        genai.configure(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
+        genai.configure(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
  
         # Check if the request contains a file
         if 'resume' not in request.files:
@@ -937,8 +937,8 @@ def generate_learning_path():
         # print(f"Knowledge Gap: {knowledge_gaps}")
         # learning_path = create_learning_path(score, difficulty, tech_stack, knowledge_gaps)
         # print(f"Learning Path: {learning_path}")
-        # genai.configure(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
-        # client = genai.Client(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
+        # genai.configure(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
+        # client = genai.Client(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
         # response = client.models.generate_content(
         #     model="gemini-2.0-flash",
         #     contents="Give a full course on AI, Machine Learning and Deep learning. The link must be working otherwise remove the link. In type you have to provide wether it is a course or project.",
@@ -947,7 +947,7 @@ def generate_learning_path():
         #         "response_schema": list[Course],
         #     },
         # )
-        genai.configure(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
+        genai.configure(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
         model = genai.GenerativeModel("gemini-1.5-flash")
         # Generate content with Gemini
         prompt = f"""
@@ -1201,7 +1201,7 @@ def generate_resources(tech_stack, knowledge_gaps, difficulty, score):
  
  
 # Configure the API key for Google Generative AI
-genai.configure(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
+genai.configure(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
  
 # Function to generate question and answer
 def generate_qa():
@@ -1229,7 +1229,7 @@ def generate_path_recommendations():
  
         skills = data.get('skills', [])
  
-        genai.configure(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
+        genai.configure(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
         model = genai.GenerativeModel("gemini-1.5-flash")
  
         skill_description = ", ".join([f"{skill['name']} (proficiency: {skill['proficiency']}%)" for skill in skills])
@@ -1705,7 +1705,7 @@ import google.generativeai as genai
 
 
 # Configure the Gemini API
-genai.configure(api_key="AIzaSyCJG6tdkOw3fRzGdM1WWFxx8t3G-Z9yW00")
+genai.configure(api_key="AIzaSyCDh22y7mKbb8rEOjxaFVq1t8N442A7lCQ")
 
 def get_job_count(city, skill):
     """

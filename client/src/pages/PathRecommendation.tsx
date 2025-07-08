@@ -105,39 +105,42 @@ const PathRecommendation: React.FC = () => {
   };
 
   return (
-    <Layout>
-      <div className="max-w-5xl mx-auto">
-        <h1 className="page-header">Personalized Path Recommendation</h1>
+     <Layout>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6">Personalized Path Recommendation</h1>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="md:col-span-2">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
                 <GraduationCap className="h-5 w-5 text-primary" />
                 Your Skills Profile
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 Rate your proficiency in different skills to get personalized recommendations.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-6">
-                <div className="flex gap-2 mb-4">
+                <div className="flex flex-col sm:flex-row gap-2 mb-4">
                   <Input
                     placeholder="Add a new skill (e.g., Python, Docker, AWS)"
                     value={newSkill}
                     onChange={(e) => setNewSkill(e.target.value)}
                     className="flex-grow"
                   />
-                  <Button onClick={handleAddSkill}>Add</Button>
+                  <Button onClick={handleAddSkill} className="w-full sm:w-auto px-8">
+                    <span className="hidden sm:inline">Add Skill</span>
+                    <span className="sm:hidden">Add</span>
+                  </Button>
                 </div>
                 
                 <div className="space-y-5">
                   {skills.map((skill, index) => (
-                    <div key={index}>
+                    <div key={index} className="bg-gray-50 p-3 rounded-lg">
                       <div className="flex justify-between mb-2">
-                        <span className="font-medium">{skill.name}</span>
-                        <span className="text-sm text-gray-500">{skill.proficiency}%</span>
+                        <span className="font-medium text-sm sm:text-base">{skill.name}</span>
+                        <span className="text-xs sm:text-sm text-gray-500">{skill.proficiency}%</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <input
@@ -163,10 +166,14 @@ const PathRecommendation: React.FC = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating Recommendations...
+                    <span className="hidden sm:inline">Generating Recommendations...</span>
+                    <span className="sm:hidden">Generating...</span>
                   </>
                 ) : (
-                  'Generate Path Recommendations'
+                  <>
+                    <span className="hidden sm:inline">Generate Path Recommendations</span>
+                    <span className="sm:hidden">Generate</span>
+                  </>
                 )}
               </Button>
             </CardFooter>
@@ -174,50 +181,50 @@ const PathRecommendation: React.FC = () => {
           
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
                 <Award className="h-5 w-5 text-primary" />
                 Your Profile Strength
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="mb-4">
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium">Profile Completeness</span>
-                  <span className="text-sm font-medium">75%</span>
+              <div className="mb-6">
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm sm:text-base font-medium">Profile Completeness</span>
+                  <span className="text-sm sm:text-base font-medium">75%</span>
                 </div>
                 <Progress value={75} className="h-2" />
               </div>
               
-              <div className="space-y-3">
-                <div className="flex items-start gap-2">
+              <div className="space-y-4">
+                <div className="flex items-start gap-2 bg-green-50 p-2 rounded-lg">
                   <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
                   <div>
-                    <p className="font-medium">Skills Added</p>
-                    <p className="text-sm text-gray-500">You've added {skills.length} skills</p>
+                    <p className="font-medium text-sm sm:text-base">Skills Added</p>
+                    <p className="text-xs sm:text-sm text-gray-500">You've added {skills.length} skills</p>
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 bg-green-50 p-2 rounded-lg">
                   <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
                   <div>
-                    <p className="font-medium">Proficiency Rated</p>
-                    <p className="text-sm text-gray-500">You've rated all your skills</p>
+                    <p className="font-medium text-sm sm:text-base">Proficiency Rated</p>
+                    <p className="text-xs sm:text-sm text-gray-500">You've rated all your skills</p>
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-2 opacity-50">
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-50">
                   <div className="h-5 w-5 border-2 border-gray-300 rounded-full mt-0.5"></div>
                   <div>
-                    <p className="font-medium">Career Goals</p>
-                    <p className="text-sm text-gray-500">Add your career objectives</p>
+                    <p className="font-medium text-sm sm:text-base">Career Goals</p>
+                    <p className="text-xs sm:text-sm text-gray-500">Add your career objectives</p>
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-2 opacity-50">
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-50">
                   <div className="h-5 w-5 border-2 border-gray-300 rounded-full mt-0.5"></div>
                   <div>
-                    <p className="font-medium">Learning Preferences</p>
-                    <p className="text-sm text-gray-500">Set your learning style</p>
+                    <p className="font-medium text-sm sm:text-base">Learning Preferences</p>
+                    <p className="text-xs sm:text-sm text-gray-500">Set your learning style</p>
                   </div>
                 </div>
               </div>
@@ -226,29 +233,32 @@ const PathRecommendation: React.FC = () => {
         </div>
         
         <Tabs defaultValue="paths" className="mb-8">
-          <TabsList className="w-full mb-6">
-            <TabsTrigger value="paths" className="flex-1">
-              <Briefcase className="mr-2 h-4 w-4" />
-              Recommended Paths
+          <TabsList className="grid grid-cols-3 gap-2 sm:gap-4 w-full mb-6">
+            <TabsTrigger value="paths" className="flex items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
+              <Briefcase className="h-4 w-4" />
+              <span className="hidden sm:inline">Recommended Paths</span>
+              <span className="sm:hidden">Paths</span>
             </TabsTrigger>
-            <TabsTrigger value="resources" className="flex-1">
-              <BookOpen className="mr-2 h-4 w-4" />
-              Learning Resources
+            <TabsTrigger value="resources" className="flex items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Learning Resources</span>
+              <span className="sm:hidden">Resources</span>
             </TabsTrigger>
-            <TabsTrigger value="skills" className="flex-1">
-              <Code className="mr-2 h-4 w-4" />
-              Skills to Develop
+            <TabsTrigger value="skills" className="flex items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
+              <Code className="h-4 w-4" />
+              <span className="hidden sm:inline">Skills to Develop</span>
+              <span className="sm:hidden">Skills</span>
             </TabsTrigger>
           </TabsList>
           
           <TabsContent value="paths">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {recommendations.careerPaths.length > 0 ? (
                 recommendations.careerPaths.map((path, index) => (
                   <Card key={index} className="flex flex-col h-full">
                     <CardHeader>
-                      <CardTitle>{path.title}</CardTitle>
-                      <CardDescription>{path.description}</CardDescription>
+                      <CardTitle className="text-lg sm:text-xl">{path.title}</CardTitle>
+                      <CardDescription className="text-sm">{path.description}</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow">
                       <div className="space-y-4">
@@ -256,62 +266,40 @@ const PathRecommendation: React.FC = () => {
                           <h3 className="text-sm font-medium text-gray-500 mb-2">Required Skills</h3>
                           <div className="flex flex-wrap gap-2">
                             {path.skills.map((skill, idx) => (
-                              <Badge 
-                                key={idx} 
-                                variant={skills.some(s => s.name === skill) ? "default" : "outline"}
-                                className={skills.some(s => s.name === skill) ? "bg-primary" : ""}
-                              >
+                              <Badge key={idx} variant="secondary" className="text-xs sm:text-sm">
                                 {skill}
                               </Badge>
                             ))}
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <h3 className="text-sm font-medium text-gray-500">Est. Timeline</h3>
-                            <p>{path.timeline}</p>
+                            <h3 className="text-sm font-medium text-gray-500 mb-1">Timeline</h3>
+                            <p className="text-sm">{path.timeline}</p>
                           </div>
                           <div>
-                            <h3 className="text-sm font-medium text-gray-500">Avg. Salary</h3>
-                            <p>{path.avgSalary}</p>
+                            <h3 className="text-sm font-medium text-gray-500 mb-1">Average Salary</h3>
+                            <p className="text-sm">{path.avgSalary}</p>
                           </div>
                         </div>
                         
                         <div>
-                          <h3 className="text-sm font-medium text-gray-500">Growth Outlook</h3>
-                          <p>{path.growthRate}</p>
-                        </div>
-                        
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">Skill Match</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Progress 
-                              value={
-                                (path.skills.filter(skill => 
-                                  skills.some(s => s.name === skill)
-                                ).length / path.skills.length) * 100
-                              } 
-                              className="h-2 flex-grow" 
-                            />
-                            <span className="text-sm">
-                              {Math.round((path.skills.filter(skill => 
-                                skills.some(s => s.name === skill)
-                              ).length / path.skills.length) * 100)}%
-                            </span>
+                          <h3 className="text-sm font-medium text-gray-500 mb-1">Growth Outlook</h3>
+                          <div className="flex items-center gap-2">
+                            <span className="text-green-600 text-sm">{path.growthRate}</span>
+                            <span className="text-xs text-gray-500">projected growth</span>
                           </div>
                         </div>
                       </div>
                     </CardContent>
-                    <CardFooter>
-                    </CardFooter>
                   </Card>
                 ))
               ) : (
                 <Card className="col-span-2">
                   <CardContent className="pt-6 text-center">
-                    <p className="text-gray-500">
-                      Generate recommendations to see career paths that match your skills.
+                    <p className="text-gray-500 text-sm sm:text-base">
+                      Generate recommendations to see career paths tailored to your skills.
                     </p>
                   </CardContent>
                 </Card>
@@ -320,30 +308,24 @@ const PathRecommendation: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="resources">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {recommendations.learningResources.length > 0 ? (
                 recommendations.learningResources.map((resource, index) => (
-                  <Card key={index}>
+                  <Card key={index} className="flex flex-col h-full">
                     <CardHeader>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div>
-                          <CardTitle>{resource.title}</CardTitle>
-                          <CardDescription>{resource.provider}</CardDescription>
+                          <CardTitle className="text-lg sm:text-xl">{resource.title}</CardTitle>
+                          <CardDescription className="text-sm">{resource.provider}</CardDescription>
                         </div>
-                        <Badge className={
-                          resource.difficulty === 'Beginner' 
-                            ? 'bg-green-500' 
-                            : resource.difficulty === 'Intermediate' 
-                              ? 'bg-amber-500'
-                              : 'bg-red-500'
-                        }>
+                        <Badge className={`self-start sm:self-center ${resource.difficulty === 'Beginner' ? 'bg-green-500' : resource.difficulty === 'Intermediate' ? 'bg-amber-500' : 'bg-red-500'}`}>
                           {resource.difficulty}
                         </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="flex justify-between mb-4">
-                        <Badge variant="outline">{resource.type}</Badge>
+                    <CardContent className="flex-grow">
+                      <div className="flex flex-col sm:flex-row justify-between gap-2 sm:items-center mb-4">
+                        <Badge variant="outline" className="text-xs sm:text-sm self-start">{resource.type}</Badge>
                         <div className="flex items-center">
                           <span className="text-amber-500 mr-1">★</span>
                           <span className="text-sm">{resource.rating}/5.0</span>
@@ -359,7 +341,8 @@ const PathRecommendation: React.FC = () => {
                     </CardContent>
                     <CardFooter>
                       <Button className="w-full" variant="outline" onClick={() => window.open(resource.url, '_blank')}>
-                        Visit Resource
+                        <span className="hidden sm:inline">Visit Resource</span>
+                        <span className="sm:hidden">Visit</span>
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
                     </CardFooter>
@@ -368,7 +351,7 @@ const PathRecommendation: React.FC = () => {
               ) : (
                 <Card className="col-span-2">
                   <CardContent className="pt-6 text-center">
-                    <p className="text-gray-500">
+                    <p className="text-gray-500 text-sm sm:text-base">
                       Generate recommendations to see learning resources tailored to your skills.
                     </p>
                   </CardContent>
@@ -381,28 +364,28 @@ const PathRecommendation: React.FC = () => {
             {recommendations.skillsToLearn.length > 0 ? (
               <Card>
                 <CardHeader>
-                  <CardTitle>Recommended Skills to Develop</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-lg sm:text-xl">Recommended Skills to Develop</CardTitle>
+                  <CardDescription className="text-sm">
                     Based on your current profile and market trends, we recommend focusing on these skills.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
                     <div className="p-4 bg-primary/10 rounded-lg">
-                      <h3 className="font-semibold mb-2">Most Valuable for Your Profile</h3>
+                      <h3 className="text-base sm:text-lg font-semibold mb-2">Most Valuable for Your Profile</h3>
                       <p className="text-sm text-gray-600 mb-4">
                         These skills will complement your existing strengths and open new opportunities.
                       </p>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {recommendations.skillsToLearn
                           .filter(skill => skill.priority === "High")
                           .slice(0, 3)
                           .map((skill, idx) => (
-                            <div key={idx} className="border rounded-md p-4">
-                              <h4 className="font-medium">{skill.name}</h4>
-                              <p className="text-sm text-gray-500 mb-2">{skill.category} development</p>
-                              <div className="flex items-center text-sm">
+                            <div key={idx} className="border rounded-md p-3 sm:p-4 bg-white">
+                              <h4 className="font-medium text-base">{skill.name}</h4>
+                              <p className="text-xs sm:text-sm text-gray-500 mb-2">{skill.category} development</p>
+                              <div className="flex items-center text-xs sm:text-sm">
                                 <span className="text-green-600 font-medium">High demand</span>
                                 <Separator orientation="vertical" className="mx-2 h-4" />
                                 <span>+30% jobs</span>
@@ -412,19 +395,19 @@ const PathRecommendation: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
-                        <h3 className="font-semibold mb-3">Frontend Skills</h3>
+                        <h3 className="text-base sm:text-lg font-semibold mb-3">Frontend Skills</h3>
                         <ul className="space-y-3">
                           {recommendations.skillsToLearn
                             .filter(skill => skill.category === "Frontend")
                             .map((skill, idx) => (
-                              <li key={idx} className="flex items-center justify-between border-b pb-2">
+                              <li key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
                                 <div>
-                                  <span className="font-medium">{skill.name}</span>
-                                  <p className="text-sm text-gray-500">Frontend development</p>
+                                  <span className="font-medium text-sm sm:text-base">{skill.name}</span>
+                                  <p className="text-xs sm:text-sm text-gray-500">Frontend development</p>
                                 </div>
-                                <Badge variant={skill.priority === "High" ? "default" : "outline"}>
+                                <Badge variant={skill.priority === "High" ? "default" : "outline"} className="self-start sm:self-center">
                                   {skill.priority} Priority
                                 </Badge>
                               </li>
@@ -433,17 +416,17 @@ const PathRecommendation: React.FC = () => {
                       </div>
                       
                       <div>
-                        <h3 className="font-semibold mb-3">Backend Skills</h3>
+                        <h3 className="text-base sm:text-lg font-semibold mb-3">Backend Skills</h3>
                         <ul className="space-y-3">
                           {recommendations.skillsToLearn
                             .filter(skill => skill.category === "Backend")
                             .map((skill, idx) => (
-                              <li key={idx} className="flex items-center justify-between border-b pb-2">
+                              <li key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
                                 <div>
-                                  <span className="font-medium">{skill.name}</span>
-                                  <p className="text-sm text-gray-500">Backend development</p>
+                                  <span className="font-medium text-sm sm:text-base">{skill.name}</span>
+                                  <p className="text-xs sm:text-sm text-gray-500">Backend development</p>
                                 </div>
-                                <Badge variant={skill.priority === "High" ? "default" : "outline"}>
+                                <Badge variant={skill.priority === "High" ? "default" : "outline"} className="self-start sm:self-center">
                                   {skill.priority} Priority
                                 </Badge>
                               </li>
@@ -457,7 +440,7 @@ const PathRecommendation: React.FC = () => {
             ) : (
               <Card>
                 <CardContent className="pt-6 text-center">
-                  <p className="text-gray-500">
+                  <p className="text-gray-500 text-sm sm:text-base">
                     Generate recommendations to see skills you should develop next.
                   </p>
                 </CardContent>
