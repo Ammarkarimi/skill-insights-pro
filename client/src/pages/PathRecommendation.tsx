@@ -304,10 +304,6 @@ const PathRecommendation: React.FC = () => {
                       </div>
                     </CardContent>
                     <CardFooter>
-                      <Button className="w-full">
-                        View Detailed Roadmap
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
                     </CardFooter>
                   </Card>
                 ))
