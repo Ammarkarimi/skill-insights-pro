@@ -65,8 +65,8 @@ SkillSphere is a comprehensive AI-driven platform designed to empower students a
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/skillsphere.git
-cd skillsphere
+git clone https://github.com/Ammarkarimi/skill-insights-pro.git
+cd skill-insights-pro
 ```
 
 ```bash
