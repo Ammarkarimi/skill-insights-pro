@@ -14,6 +14,7 @@ const Index = lazy(() => import("./pages/Index"));
 const SkillAssessment = lazy(() => import("./pages/SkillAssessment"));
 const JobMarket = lazy(() => import("./pages/JobMarket"));
 const ResumeTips = lazy(() => import("./pages/ResumeTips"));
+const ResumeTailor = lazy(() => import("./pages/ResumeTailor"));
 const PathRecommendation = lazy(() => import("./pages/PathRecommendation"));
 const JobAssessment = lazy(() => import("./pages/JobAssessment"));
 const Chatbot = lazy(() => import("./pages/Chatbot"));
@@ -35,6 +36,7 @@ const protectedRoutes: [string, React.ComponentType][] = [
   ["/skill-assessment", SkillAssessment],
   ["/job-market", JobMarket],
   ["/resume-tips", ResumeTips],
+  ["/resume-tailor", ResumeTailor],
   ["/path-recommendation", PathRecommendation],
   ["/job-assessment", JobAssessment],
   ["/chatbot", Chatbot],

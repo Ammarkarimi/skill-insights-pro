@@ -37,7 +37,7 @@ def _view(row: TailoredResume) -> dict:
         "changes": row.meta.get("changes", []),
         "keywordsAdded": row.meta.get("keywords_added", []),
         "keywordsMissing": row.meta.get("keywords_missing", []),
-        "warnings": row.meta.get("warnings", []),
+        "warnings": svc.warnings_for(row.meta.get("facts", {}), content),
         "placeholders": _placeholders(content),
         "createdAt": row.created_at.isoformat(),
         "updatedAt": row.updated_at.isoformat(),
@@ -72,13 +72,13 @@ def create(response: Response, resume: UploadFile = File(...),
 
     with charge(db, user, "resume_tailor", response):
         result = svc.tailor(text, title, company.strip(), jd, user.id)
-    warnings = svc.fact_check(text, result.resume)
+    facts = svc.source_facts(text, result.resume)
     row = TailoredResume(
         user_id=user.id, target_role_id=target.id if target else None, job_title=title,
         company=company.strip(), job_description=jd, content=result.resume.model_dump(),
         meta={"changes": [c.model_dump() for c in result.changes],
               "keywords_added": result.keywords_added, "keywords_missing": result.keywords_missing,
-              "warnings": warnings},
+              "facts": facts},
     )
     db.add(row)
     db.commit()

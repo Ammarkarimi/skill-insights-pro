@@ -116,37 +116,46 @@ def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9%$]+", " ", text.lower()).strip()
 
 
-def fact_check(original: str, content: ResumeContent) -> list[str]:
-    """Warnings for facts in the tailored resume that the original resume does not contain."""
+def _num_key(raw: str) -> str:
+    return re.sub(r"[\s,]", "", raw.lower()).rstrip(".")
+
+
+def source_facts(original: str, content: ResumeContent) -> dict:
+    """What we keep from the original resume to re-check edits later (never the resume itself):
+    the set of figures it contains and any entity in the tailored output it does not contain."""
     source = f" {_norm(original)} "
-    warnings: list[str] = []
 
     def missing(value: str) -> bool:
         value = _norm(value)
         return bool(value) and f" {value} " not in source and value not in source
 
-    for role in content.experience:
-        if missing(role.company):
-            warnings.append(f"Employer \"{role.company}\" was not found in your original resume.")
-    for edu in content.education:
-        if missing(edu.institution):
-            warnings.append(f"Institution \"{edu.institution}\" was not found in your original resume.")
-    for cert in content.certifications:
-        if missing(cert):
-            warnings.append(f"Certification \"{cert}\" was not found in your original resume.")
+    entities = [{"kind": "Employer", "value": r.company} for r in content.experience if missing(r.company)]
+    entities += [{"kind": "Institution", "value": e.institution} for e in content.education
+                 if missing(e.institution)]
+    entities += [{"kind": "Certification", "value": c} for c in content.certifications if missing(c)]
+    return {"numbers": sorted({_num_key(n) for n in _NUM.findall(original)}), "entities": entities}
 
-    def num_key(raw: str) -> str:
-        return re.sub(r"[\s,]", "", raw.lower()).rstrip(".")
 
-    original_numbers = {num_key(n) for n in _NUM.findall(original)}
+def warnings_for(facts: dict, content: ResumeContent) -> list[str]:
+    """Current warnings for (possibly user-edited) content."""
+    present = {_norm(r.company) for r in content.experience} | \
+              {_norm(e.institution) for e in content.education} | {_norm(c) for c in content.certifications}
+    warnings = [f"{e['kind']} \"{e['value']}\" was not found in your original resume."
+                for e in facts.get("entities", []) if _norm(e["value"]) in present]
+
+    known = set(facts.get("numbers", []))
     seen: set[str] = set()
     texts = [content.summary] + [b for r in content.experience for b in r.bullets] + \
             [b for p in content.projects for b in p.bullets]
     for text in texts:
         for raw in _NUM.findall(text):
-            key = num_key(raw)
-            if key and key not in original_numbers and key not in seen:
+            key = _num_key(raw)
+            if key and key not in known and key not in seen:
                 seen.add(key)
                 warnings.append(f"The figure \"{raw.strip()}\" is not in your original resume. "
                                 "Make sure it is accurate before sending.")
     return warnings
+
+
+def fact_check(original: str, content: ResumeContent) -> list[str]:
+    return warnings_for(source_facts(original, content), content)

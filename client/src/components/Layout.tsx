@@ -14,6 +14,7 @@ import {
   VideoIcon,
   Coins,
   LogOut,
+  FilePen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -48,6 +49,7 @@ const navItems = [
   { path: "/home", label: "Dashboard", icon: <Home size={20} /> },
   { path: "/skill-assessment", label: "Skill Assessment", icon: <BookOpen size={20} /> },
   { path: "/resume-tips", label: "Resume Analyzer & Tips", icon: <FileText size={20} /> },
+  { path: "/resume-tailor", label: "Resume Tailor", icon: <FilePen size={20} /> },
   { path: "/practice-interview", label: "Practice Interview", icon: <VideoIcon size={20} /> },
   { path: "/job-assessment", label: "Job Match", icon: <BriefcaseBusiness size={20} /> },
   { path: "/path-recommendation", label: "Career Paths", icon: <GraduationCap size={20} /> },

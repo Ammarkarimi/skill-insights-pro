@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
-import { BookOpen, BarChart, FileText, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
+import { BookOpen, BarChart, FileText, FilePen, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const features = [
@@ -19,6 +19,12 @@ const features = [
     description: "Get recruiter-grade scores, line-by-line rewrites and ATS keyword gaps, then download a PDF report.",
     icon: <FileText size={24} />,
     path: "/resume-tips",
+  },
+  {
+    title: "Resume Tailor",
+    description: "Rewrite your resume for a specific job, honestly, then download an ATS-friendly Word or PDF file.",
+    icon: <FilePen size={24} />,
+    path: "/resume-tailor",
   },
   {
     title: "Practice Interview",

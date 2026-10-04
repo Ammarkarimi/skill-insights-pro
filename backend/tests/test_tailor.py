@@ -125,3 +125,14 @@ def test_schema_is_strict_compatible():
     from openai.lib._parsing._responses import type_to_text_format_param
 
     assert type_to_text_format_param(svc.TailorLLM)["strict"] is True
+
+
+def test_warnings_update_after_edits(client, user, fake_llm):
+    body = create(client, fake_llm, company="Google", bullet="Grew revenue 45%").json()
+    assert any("Google" in w for w in body["warnings"]) and any("45%" in w for w in body["warnings"])
+    edited = body["content"]
+    edited["experience"][0]["company"] = "Acme Corp"
+    edited["experience"][0]["bullets"] = ["Grew revenue [X%]"]
+    edited["summary"] = "Backend engineer building payment systems."
+    after = client.put(f"/api/tailor/{body['id']}", json=edited).json()
+    assert after["warnings"] == [] and after["placeholders"] == 1
