@@ -120,6 +120,38 @@ def _num_key(raw: str) -> str:
     return re.sub(r"[\s,]", "", raw.lower()).rstrip(".")
 
 
+def figures(text: str) -> set[str]:
+    return {_num_key(n) for n in _NUM.findall(text)}
+
+
+def new_figure_warnings(known: set[str], texts: list[str]) -> list[str]:
+    """Warn about figures in generated text that the source material never mentioned."""
+    warnings, seen = [], set()
+    for text in texts:
+        for raw in _NUM.findall(text):
+            key = _num_key(raw)
+            if key and key not in known and key not in seen:
+                seen.add(key)
+                warnings.append(f"The figure \"{raw.strip()}\" is not in your original resume. "
+                                "Make sure it is accurate before sending.")
+    return warnings
+
+
+def content_to_text(content: ResumeContent) -> str:
+    """Plain-text rendering of a tailored resume (used as source material for letters)."""
+    lines = [content.contact.name, content.headline, content.summary]
+    lines += [f"{g.category}: {', '.join(g.items)}" for g in content.skills]
+    for r in content.experience:
+        lines.append(f"{r.title}, {r.company} ({r.start} - {r.end})")
+        lines += [f"- {b}" for b in r.bullets]
+    for p in content.projects:
+        lines.append(f"Project: {p.name} ({', '.join(p.tech)})")
+        lines += [f"- {b}" for b in p.bullets]
+    lines += [f"{e.degree}, {e.institution} {e.end}" for e in content.education]
+    lines += content.certifications
+    return "\n".join(line for line in lines if line.strip())
+
+
 def source_facts(original: str, content: ResumeContent) -> dict:
     """What we keep from the original resume to re-check edits later (never the resume itself):
     the set of figures it contains and any entity in the tailored output it does not contain."""
@@ -133,7 +165,7 @@ def source_facts(original: str, content: ResumeContent) -> dict:
     entities += [{"kind": "Institution", "value": e.institution} for e in content.education
                  if missing(e.institution)]
     entities += [{"kind": "Certification", "value": c} for c in content.certifications if missing(c)]
-    return {"numbers": sorted({_num_key(n) for n in _NUM.findall(original)}), "entities": entities}
+    return {"numbers": sorted(figures(original)), "entities": entities}
 
 
 def warnings_for(facts: dict, content: ResumeContent) -> list[str]:
@@ -143,17 +175,9 @@ def warnings_for(facts: dict, content: ResumeContent) -> list[str]:
     warnings = [f"{e['kind']} \"{e['value']}\" was not found in your original resume."
                 for e in facts.get("entities", []) if _norm(e["value"]) in present]
 
-    known = set(facts.get("numbers", []))
-    seen: set[str] = set()
     texts = [content.summary] + [b for r in content.experience for b in r.bullets] + \
             [b for p in content.projects for b in p.bullets]
-    for text in texts:
-        for raw in _NUM.findall(text):
-            key = _num_key(raw)
-            if key and key not in known and key not in seen:
-                seen.add(key)
-                warnings.append(f"The figure \"{raw.strip()}\" is not in your original resume. "
-                                "Make sure it is accurate before sending.")
+    warnings += new_figure_warnings(set(facts.get("numbers", [])), texts)
     return warnings
 
 
