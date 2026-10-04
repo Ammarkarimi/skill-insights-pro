@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
-import { BookOpen, BarChart, FileText, FilePen, Mail, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
+import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const features = [
@@ -37,6 +37,12 @@ const features = [
     description: "Quick practice, or 'Defend my resume': an interviewer probes your resume claims with follow-ups and verifies each one.",
     icon: <UsersIcon size={24} />,
     path: "/practice-interview",
+  },
+  {
+    title: "Salary Negotiation",
+    description: "Negotiate with an AI recruiter who has a hidden budget, see what you left on the table, and get real scripts.",
+    icon: <HandCoins size={24} />,
+    path: "/negotiation",
   },
   {
     title: "Job Match",

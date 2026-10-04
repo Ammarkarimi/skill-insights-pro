@@ -16,6 +16,7 @@ import {
   LogOut,
   FilePen,
   Mail,
+  HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -54,6 +55,7 @@ const navItems = [
   { path: "/letters", label: "Cover Letters & Outreach", icon: <Mail size={20} /> },
   { path: "/practice-interview", label: "Practice Interview", icon: <VideoIcon size={20} /> },
   { path: "/job-assessment", label: "Job Match", icon: <BriefcaseBusiness size={20} /> },
+  { path: "/negotiation", label: "Salary Negotiation", icon: <HandCoins size={20} /> },
   { path: "/path-recommendation", label: "Career Paths", icon: <GraduationCap size={20} /> },
   { path: "/job-market", label: "Job Market", icon: <BarChart size={20} /> },
   { path: "/chatbot", label: "Career Chatbot", icon: <BotIcon size={20} /> },
