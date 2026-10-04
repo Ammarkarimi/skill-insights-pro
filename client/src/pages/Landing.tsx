@@ -184,8 +184,8 @@
           <div className="hero-content">
             <h1 className="hero-title">Navigate Your Career Journey with AI-Powered Guidance</h1>
             <p className="hero-subtitle">
-              Skill Sphere helps you assess your skills, analyze job markets, and build a strategic career path tailored
-              to your goals.
+              Pick the job you want. Skill Sphere measures how ready you are for it, from your skills, resume and
+              interviews, and shows you the fastest way to close the gaps.
             </p>
             <div className="hero-buttons">
               <Link to={user ? "/home" : "/register"} className="btn btn-primary">
@@ -291,6 +291,8 @@
               <span>Skill assessment: {pricing.costs.assessment_questions} credits</span>
               <span>Learning path: {pricing.costs.learning_path} credits</span>
               <span>Mock interview: {pricing.costs.interview_questions + pricing.costs.interview_evaluation} credits</span>
+              <span>Defend-your-resume interview: {pricing.costs.deep_interview_start + pricing.costs.deep_interview_report} credits</span>
+              <span>Readiness scorecard: {pricing.costs.target_role_setup} credits per role</span>
               <span>Job match: {pricing.costs.job_match_per_resume} credits/resume</span>
               <span>Chat message: {pricing.costs.chat_message} credit</span>
             </div>

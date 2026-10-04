@@ -22,7 +22,7 @@ const features = [
   },
   {
     title: "Practice Interview",
-    description: "Answer realistic interview questions by voice or text and get scored, detailed feedback with model answers.",
+    description: "Quick practice, or 'Defend my resume': an interviewer probes your resume claims with follow-ups and verifies each one.",
     icon: <UsersIcon size={24} />,
     path: "/practice-interview",
   },

@@ -110,6 +110,14 @@ export const Privacy = () => (
     <ul>
       <li>Uploaded resume files are processed in memory and are not stored on our servers.</li>
       <li>Mock-interview results are saved to your account so you can review them, until you ask us to delete them.</li>
+      <li>
+        For "Defend your resume" interviews we store only the short resume lines the interviewer asks about, your
+        answers and the feedback, never the full resume.
+      </li>
+      <li>
+        Target roles (title and job description), assessment questions and results, and the readiness scores derived
+        from your activity are saved to your account so you can track progress.
+      </li>
       <li>Chat conversations are not stored on our servers.</li>
       <li>Account and billing records are kept while your account is active and as required by law.</li>
     </ul>

@@ -9,6 +9,9 @@ export const ACTION_LABELS: Record<string, string> = {
   job_match_per_resume: "Job match (per resume)",
   career_recommendations: "Career path recommendations",
   market_insights: "Job market report",
+  target_role_setup: "Target role scorecard",
+  deep_interview_start: "Defend-your-resume interview",
+  deep_interview_report: "Defend-your-resume report",
 };
 
 export const COMPANY_NAME = import.meta.env.VITE_COMPANY_NAME || "Skill Sphere";

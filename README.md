@@ -10,14 +10,18 @@ The app is built to be hosted as a paid product. Users sign up, get free credits
 
 | Feature | What users get | Credits* |
 |---|---|---|
+| **Readiness Score** ⭐ | Set a target role (title, job description, optional resume) to get a weighted requirement scorecard. Every assessment, resume analysis and interview adds evidence. Shows a 0–100 readiness score, coverage, trend and next-best actions. Scoring itself is free | 2 per role |
+| **Defend Your Resume** ⭐ | An adaptive interview that probes the claims on your resume for the target role with up to 2 follow-ups each. Verdicts: supported, weak or unsupported, with resume fixes, model answers and in-browser delivery stats (pace, fillers, pauses) | 3 + 3 |
 | **Resume Analyzer** | Overall score plus 5 category scores, line-by-line rewrites highlighted in the resume, missing keywords and sections, PDF report. Optional target role or job description | 3 |
-| **Skill Assessment** | Skills auto-detected from the resume (1 credit), 10 MCQs with code questions and explanations, per-skill breakdown | 2 |
+| **Skill Assessment** | Skills auto-detected from the resume (1 credit), 10 MCQs with code questions and explanations, per-skill breakdown. Graded on the server, so scores are trustworthy evidence | 2 |
 | **Learning Path** | Focus areas from the user's actual mistakes, verified resource links, week-by-week plan, capstone project, PDF | 2 |
 | **Practice Interview** | Spoken or typed answers. Each answer is scored /10 with strengths, gaps and a model answer, plus an overall readiness verdict. History is saved | 1 + 3 |
 | **Job Match** | Ranks 1–10 resumes against a job description: requirement-by-requirement check, missing keywords, interview questions, learning plan | 2 / resume |
 | **Career Paths** | Role recommendations with fit score, skill gaps, salary for the user's location, resources and a 30-day plan | 3 |
 | **Job Market** | Live postings, salaries and top employers via Adzuna (optional), plus AI insights clearly labeled as estimates | 2 (cached for 6 h, free on repeat) |
 | **Career Chatbot** | Context-aware career coach with Markdown answers | 1 / message |
+
+⭐ Unique to SkillSphere. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the competitive analysis and roadmap.
 
 \*Defaults; configurable with `ACTION_COSTS`. Credits are reserved before each AI call and **automatically refunded if it fails**.
 
