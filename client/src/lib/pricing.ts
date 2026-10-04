@@ -12,6 +12,10 @@ export const ACTION_LABELS: Record<string, string> = {
   target_role_setup: "Target role scorecard",
   deep_interview_start: "Defend-your-resume interview",
   deep_interview_report: "Defend-your-resume report",
+  resume_tailor: "Tailored resume (with Word/PDF export)",
+  letter: "Cover letter or outreach message",
+  negotiation_start: "Salary negotiation practice",
+  negotiation_report: "Salary negotiation debrief",
 };
 
 export const COMPANY_NAME = import.meta.env.VITE_COMPANY_NAME || "Skill Sphere";

@@ -118,7 +118,12 @@ export const Privacy = () => (
         Target roles (title and job description), assessment questions and results, and the readiness scores derived
         from your activity are saved to your account so you can track progress.
       </li>
-      <li>Chat conversations are not stored on our servers.</li>
+      <li>
+        Tailored resumes you create (including the contact details on them and the job description used) are saved to
+        your account so you can edit and download them. You can delete them at any time from the Resume Tailor page.
+      </li>
+      <li>Salary-negotiation practice sessions (your messages and the debrief) are saved so you can review them.</li>
+      <li>Chat conversations and generated cover letters or outreach messages are not stored on our servers.</li>
       <li>Account and billing records are kept while your account is active and as required by law.</li>
     </ul>
     <h2>Your rights</h2>

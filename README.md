@@ -12,6 +12,9 @@ The app is built to be hosted as a paid product. Users sign up, get free credits
 |---|---|---|
 | **Readiness Score** ⭐ | Set a target role (title, job description, optional resume) to get a weighted requirement scorecard. Every assessment, resume analysis and interview adds evidence. Shows a 0–100 readiness score, coverage, trend and next-best actions. Scoring itself is free | 2 per role |
 | **Defend Your Resume** ⭐ | An adaptive interview that probes the claims on your resume for the target role with up to 2 follow-ups each. Verdicts: supported, weak or unsupported, with resume fixes, model answers and in-browser delivery stats (pace, fillers, pauses) | 3 + 3 |
+| **Resume Tailor** ⭐ | Rewrites your resume for a job (or your target role) without inventing facts. Missing metrics become [placeholders], and a fact check flags any employer, school or figure not in the original. Editable, with free ATS-safe Word/PDF downloads | 4 |
+| **Salary Negotiation** ⭐ | Role-play with an AI recruiter who has a hidden budget (enforced server-side). The debrief reveals the budget, how much of the room you captured, technique scores and ready-to-use scripts | 2 + 2 |
+| **Cover Letters & Outreach** | Cover letter, recruiter email, LinkedIn note (≤300 chars), referral request or thank-you, built from your real resume, with free Word export | 1 |
 | **Resume Analyzer** | Overall score plus 5 category scores, line-by-line rewrites highlighted in the resume, missing keywords and sections, PDF report. Optional target role or job description | 3 |
 | **Skill Assessment** | Skills auto-detected from the resume (1 credit), 10 MCQs with code questions and explanations, per-skill breakdown. Graded on the server, so scores are trustworthy evidence | 2 |
 | **Learning Path** | Focus areas from the user's actual mistakes, verified resource links, week-by-week plan, capstone project, PDF | 2 |

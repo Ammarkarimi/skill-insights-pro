@@ -15,8 +15,12 @@
     FileText,
     Compass,
     Briefcase,
-    MessageCircle,
     Video,
+    Target,
+    ShieldCheck,
+    FilePen,
+    HandCoins,
+    Mail,
   } from "lucide-react"
   
   const Landing = () => {
@@ -61,49 +65,61 @@
   
     const features = [
       {
+        icon: <Target className="feature-icon" />,
+        title: "Readiness Score",
+        description: "Pick the job you want and see a 0-100 score for how ready you are, requirement by requirement, with the next best step",
+        route: "/home",
+      },
+      {
+        icon: <ShieldCheck className="feature-icon" />,
+        title: "Defend Your Resume",
+        description: "An AI interviewer probes the claims on your resume with follow-up questions and tells you which ones hold up",
+        route: "/practice-interview?mode=deep",
+      },
+      {
+        icon: <FilePen className="feature-icon" />,
+        title: "Resume Tailor",
+        description: "Rewrite your resume for any job, honestly, and download an ATS-friendly Word or PDF file",
+        route: "/resume-tailor",
+      },
+      {
+        icon: <HandCoins className="feature-icon" />,
+        title: "Salary Negotiation",
+        description: "Negotiate with an AI recruiter who has a hidden budget, then see what you left on the table",
+        route: "/negotiation",
+      },
+      {
+        icon: <Mail className="feature-icon" />,
+        title: "Cover Letters & Outreach",
+        description: "Cover letters, recruiter emails, LinkedIn notes and referral requests built from your real experience",
+        route: "/letters",
+      },
+      {
         icon: <CheckCircle className="feature-icon" />,
         title: "Skills Assessment",
-        description: "Evaluate your current skills and identify areas for improvement",
+        description: "Targeted tests with explanations and a learning path built from your mistakes",
         route: "/skill-assessment",
       },
       {
-        icon: <BarChart2 className="feature-icon" />,
-        title: "Job Market Analysis",
-        description: "Get insights into current job market trends and demands",
-        route: "/job-market",
-      },
-      {
         icon: <FileText className="feature-icon" />,
-        title: "Resume & Interview Tips",
-        description: "Optimize your resume and prepare for interviews with expert advice",
+        title: "Resume Analyzer",
+        description: "Recruiter-grade scores and line-by-line rewrites for your resume",
         route: "/resume-tips",
-      },
-      {
-        icon: <Compass className="feature-icon" />,
-        title: "Path Recommendation",
-        description: "Receive personalized career path recommendations based on your profile",
-        route: "/path-recommendation",
-      },
-      {
-        icon: <Briefcase className="feature-icon" />,
-        title: "Job Assessment",
-        description: "Evaluate job opportunities against your skills and career goals",
-        route: "/job-assessment",
-      },
-      {
-        icon: <MessageCircle className="feature-icon" />,
-        title: "AI Career Chatbot",
-        description: "Get instant answers to your career questions from our AI assistant",
-        route: "/chatbot",
       },
       {
         icon: <Video className="feature-icon" />,
         title: "Interview Practice",
-        description: "Practice interviews with AI-powered simulations and get feedback",
+        description: "Voice or text mock interviews with scored feedback and model answers",
         route: "/practice-interview",
       },
+      {
+        icon: <BarChart2 className="feature-icon" />,
+        title: "Job Market & Career Paths",
+        description: "Demand, salary bands and the career paths that fit your skills",
+        route: "/job-market",
+      },
     ]
-  
+
     const teamMembers = [
       {
         name: "Ammar Karimi",
@@ -293,6 +309,9 @@
               <span>Mock interview: {pricing.costs.interview_questions + pricing.costs.interview_evaluation} credits</span>
               <span>Defend-your-resume interview: {pricing.costs.deep_interview_start + pricing.costs.deep_interview_report} credits</span>
               <span>Readiness scorecard: {pricing.costs.target_role_setup} credits per role</span>
+              <span>Tailored resume + Word/PDF: {pricing.costs.resume_tailor} credits</span>
+              <span>Cover letter or outreach: {pricing.costs.letter} credit</span>
+              <span>Negotiation practice: {pricing.costs.negotiation_start + pricing.costs.negotiation_report} credits</span>
               <span>Job match: {pricing.costs.job_match_per_resume} credits/resume</span>
               <span>Chat message: {pricing.costs.chat_message} credit</span>
             </div>

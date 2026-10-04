@@ -26,7 +26,7 @@
 | Phase | Features | Status |
 |---|---|---|
 | 1 | Target-role **Readiness Score** (requirement scorecard, evidence from every feature, trend, next actions); **Defend Your Resume** adaptive interview with claim verification and delivery analytics; server-graded assessments | ✅ Shipped |
-| 2 | Tailored resume generator with DOCX/PDF export; cover letter and outreach writer; salary-negotiation simulator | Planned |
+| 2 | **Resume Tailor** (honest rewrite, fact check, editable, DOCX/PDF export); **cover letter & outreach writer**; **salary-negotiation simulator** with a hidden, server-enforced budget | ✅ Shipped |
 | 3 | Public **Skill Proof Portfolio**: adaptive-difficulty assessments, GitHub project review, shareable evidence page | Planned |
 | 4 | Recruiter/campus (B2B) mode; India pack (aptitude tests, Razorpay/UPI, INR micro-packs) if the market focus changes | Later |
 
