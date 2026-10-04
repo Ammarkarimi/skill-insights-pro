@@ -69,6 +69,11 @@ def _user_id_from_request(request: Request) -> int | None:
         return None
 
 
+def optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
+    user_id = _user_id_from_request(request)
+    return db.get(User, user_id) if user_id is not None else None
+
+
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     user_id = _user_id_from_request(request)
     user = db.get(User, user_id) if user_id is not None else None

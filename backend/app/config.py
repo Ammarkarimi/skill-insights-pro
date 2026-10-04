@@ -88,6 +88,12 @@ class Settings(BaseSettings):
     adzuna_app_id: str = ""
     adzuna_app_key: str = ""
 
+    # GitHub: OAuth app for "Connect GitHub" (callback {APP_URL}/api/github/callback) and an
+    # optional server token that raises API rate limits for project reviews.
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    github_token: str = ""
+
     # Limits
     max_upload_mb: int = 5
     max_job_match_resumes: int = 10
@@ -122,6 +128,10 @@ class Settings(BaseSettings):
     @property
     def adzuna_enabled(self) -> bool:
         return bool(self.adzuna_app_id and self.adzuna_app_key)
+
+    @property
+    def github_oauth_enabled(self) -> bool:
+        return bool(self.github_client_id and self.github_client_secret)
 
     def cost(self, action: str) -> int:
         return self.action_costs[action]

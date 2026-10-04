@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -188,3 +188,17 @@ class ProofAssessment(Base):
     focus_lost: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class GithubAccount(Base):
+    """A verified GitHub identity linked via OAuth. The OAuth token is never stored."""
+
+    __tablename__ = "github_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    github_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    login: Mapped[str] = mapped_column(String(100))
+    name: Mapped[str] = mapped_column(String(200), default="")
+    avatar_url: Mapped[str] = mapped_column(String(500), default="")
+    connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
