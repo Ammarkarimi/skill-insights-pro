@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
-import { BookOpen, BarChart, FileText, FilePen, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
+import { BookOpen, BarChart, FileText, FilePen, Mail, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const features = [
@@ -25,6 +25,12 @@ const features = [
     description: "Rewrite your resume for a specific job, honestly, then download an ATS-friendly Word or PDF file.",
     icon: <FilePen size={24} />,
     path: "/resume-tailor",
+  },
+  {
+    title: "Cover Letters & Outreach",
+    description: "Cover letters, recruiter emails, LinkedIn notes, referral requests and thank-yous that sound like you.",
+    icon: <Mail size={24} />,
+    path: "/letters",
   },
   {
     title: "Practice Interview",
