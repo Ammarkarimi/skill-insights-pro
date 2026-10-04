@@ -49,6 +49,7 @@ DEFAULT_COSTS: dict[str, int] = {
     "negotiation_start": 2,
     "negotiation_report": 2,
     "proof_assessment": 3,
+    "project_review": 5,
 }
 
 

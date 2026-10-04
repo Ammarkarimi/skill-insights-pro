@@ -202,3 +202,20 @@ class GithubAccount(Base):
     name: Mapped[str] = mapped_column(String(200), default="")
     avatar_url: Mapped[str] = mapped_column(String(500), default="")
     connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ProjectReview(Base):
+    """An AI review of a public repository at a specific commit. Code itself is never stored."""
+
+    __tablename__ = "project_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    repo_full_name: Mapped[str] = mapped_column(String(200))
+    repo_url: Mapped[str] = mapped_column(String(300))
+    commit_sha: Mapped[str] = mapped_column(String(64))
+    ownership: Mapped[dict] = mapped_column(JSON)
+    repo_meta: Mapped[dict] = mapped_column(JSON)
+    review: Mapped[dict] = mapped_column(JSON)
+    overall_score: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
