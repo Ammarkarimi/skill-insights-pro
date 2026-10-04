@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..credits import charge
 from ..db import get_db
 from ..documents import resume_text_from_upload
-from ..models import TargetRole, User
+from ..models import Evidence, TargetRole, User
 from ..security import current_user
 from ..services import readiness as svc
 
@@ -61,3 +61,19 @@ def activate_target(target_id: int, user: User = Depends(current_user),
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Target role not found.")
     svc.activate(db, target)
     return svc.target_to_dict(target)
+
+
+@router.get("")
+def readiness(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    target = svc.active_target(db, user.id)
+    if target is None:
+        return {"target": None}
+    evidence = db.scalars(select(Evidence).where(Evidence.user_id == user.id,
+                                                 Evidence.target_role_id == target.id)).all()
+    computed = svc.compute_readiness(target, list(evidence))
+    return {
+        "target": svc.target_to_dict(target),
+        **computed,
+        "actions": svc.next_actions(target, computed, list(evidence)),
+        "sourceLabels": svc.SOURCE_LABELS,
+    }

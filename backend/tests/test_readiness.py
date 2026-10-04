@@ -93,3 +93,85 @@ def test_invalid_resume_not_charged(client, user, fake_llm):
     assert r.status_code == 400
     assert client.get("/api/auth/me").json()["credits"] == 10
     assert fake_llm.calls == []
+
+
+# ---------------------------------------------------------------- scoring
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+NOW = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+
+
+def _target():
+    return TargetRole(id=1, user_id=1, title="Frontend Engineer", requirements=[
+        {"key": "react", "name": "React", "kind": "skill", "weight": 3, "must_have": True, "aliases": []},
+        {"key": "typescript", "name": "TypeScript", "kind": "skill", "weight": 2, "must_have": True,
+         "aliases": []},
+        {"key": "code-review", "name": "Code review", "kind": "practice", "weight": 1,
+         "must_have": False, "aliases": []},
+    ])
+
+
+def _ev(key, source, score, days_ago=0):
+    return Evidence(user_id=1, target_role_id=1, requirement_key=key, skill=key, source=source,
+                    score=score, payload={}, created_at=NOW - timedelta(days=days_ago))
+
+
+def test_unmeasured_requirements_count_as_zero():
+    out = readiness.compute_readiness(_target(), [_ev("react", "assessment", 80)], now=NOW)
+    # (3*80 + 2*0 + 1*0) / 6 = 40
+    assert (out["score"], out["coverage"]) == (40, 33)
+    react = next(r for r in out["requirements"] if r["key"] == "react")
+    assert react["score"] == 80 and react["sources"] == {"assessment": 80}
+
+
+def test_source_weights_and_recency():
+    ev = [_ev("react", "baseline", 20), _ev("react", "assessment", 80)]
+    out = readiness.compute_readiness(_target(), ev, now=NOW)
+    react = next(r for r in out["requirements"] if r["key"] == "react")
+    assert react["score"] == round((0.4 * 20 + 1.0 * 80) / 1.4)  # 63
+    # An old assessment counts less than a fresh one.
+    ev = [_ev("react", "assessment", 20, days_ago=180), _ev("react", "assessment", 80)]
+    react = next(r for r in readiness.compute_readiness(_target(), ev, now=NOW)["requirements"]
+                 if r["key"] == "react")
+    assert react["score"] == round((0.25 * 20 + 1.0 * 80) / 1.25)  # 68
+
+
+def test_trend_has_one_point_per_evidence_day():
+    ev = [_ev("react", "assessment", 60, days_ago=10), _ev("typescript", "assessment", 90, days_ago=2)]
+    trend = readiness.compute_readiness(_target(), ev, now=NOW)["trend"]
+    assert [t["date"] for t in trend] == ["2026-09-21", "2026-09-29", "2026-10-01"]
+    assert trend[0]["score"] < trend[1]["score"]
+    assert trend[-1]["score"] == readiness.compute_readiness(_target(), ev, now=NOW)["score"]
+
+
+def test_requirements_ordered_must_have_first_then_weight():
+    out = readiness.compute_readiness(_target(), [], now=NOW)
+    assert [r["key"] for r in out["requirements"]] == ["react", "typescript", "code-review"]
+    assert out["score"] == 0 and out["coverage"] == 0
+
+
+def test_next_actions_rules():
+    target = _target()
+    out = readiness.compute_readiness(target, [], now=NOW)
+    actions = readiness.next_actions(target, out, [], now=NOW)
+    assert [a["type"] for a in actions] == ["assessment", "resume", "deep_interview"]
+    assert actions[0]["href"] == "/skill-assessment?skills=React%2CTypeScript"
+
+    ev = [_ev("react", "assessment", 40), _ev("typescript", "assessment", 90),
+          _ev("react", "resume", 50, days_ago=3), _ev("react", "deep_interview", 50, days_ago=1)]
+    out = readiness.compute_readiness(target, ev, now=NOW)
+    actions = readiness.next_actions(target, out, ev, now=NOW)
+    assert [a["type"] for a in actions] == ["improve"]
+    assert "React" in actions[0]["title"]
+
+
+def test_readiness_endpoint(client, user, fake_llm):
+    assert client.get("/api/readiness").json() == {"target": None}
+    target = create_target(client, fake_llm, with_resume=True)
+    body = client.get("/api/readiness").json()
+    assert body["target"]["id"] == target["id"]
+    # baseline: react 85 (w3), typescript 15 (w3), rest 55 (w2), code review unmeasured (w1)
+    assert body["score"] == round((3 * 85 + 3 * 15 + 2 * 55) / 9)
+    assert body["coverage"] == 75
+    assert body["actions"][0]["type"] == "resume"
+    assert len(body["trend"]) == 1

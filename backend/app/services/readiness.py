@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from typing import Literal
+from urllib.parse import quote
 
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
@@ -134,3 +136,124 @@ def target_to_dict(target: TargetRole) -> dict:
         "isActive": target.is_active,
         "createdAt": target.created_at.isoformat(),
     }
+
+
+# ---------------------------------------------------------------- scoring (deterministic, no LLM)
+SOURCE_WEIGHTS = {"assessment": 1.0, "deep_interview": 1.0, "interview": 0.7, "resume": 0.5,
+                  "baseline": 0.4}
+HALF_LIFE_DAYS = 90.0
+SOURCE_LABELS = {"assessment": "Skill assessment", "deep_interview": "Deep interview",
+                 "interview": "Practice interview", "resume": "Resume analysis",
+                 "baseline": "Resume (setup)"}
+
+
+def _as_utc(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _requirement_scores(target: TargetRole, evidence: list[Evidence], now: datetime) -> list[dict]:
+    by_key: dict[str, list[Evidence]] = {}
+    for e in evidence:
+        if e.requirement_key and _as_utc(e.created_at) <= now:
+            by_key.setdefault(e.requirement_key, []).append(e)
+    rows = []
+    for req in target.requirements:
+        items = by_key.get(req["key"], [])
+        total_w = weighted = 0.0
+        latest: dict[str, int] = {}
+        for e in sorted(items, key=lambda x: _as_utc(x.created_at)):
+            age = max(0.0, (now - _as_utc(e.created_at)).total_seconds() / 86400)
+            w = SOURCE_WEIGHTS.get(e.source, 0.5) * 0.5 ** (age / HALF_LIFE_DAYS)
+            total_w += w
+            weighted += w * e.score
+            latest[e.source] = e.score
+        rows.append({
+            **{k: req[k] for k in ("key", "name", "kind", "weight", "must_have")},
+            "score": round(weighted / total_w) if total_w else None,
+            "sources": latest,
+            "evidenceCount": len(items),
+            "lastUpdated": _as_utc(items[-1].created_at).isoformat() if items else None,
+        })
+    return rows
+
+
+def _overall(rows: list[dict]) -> tuple[int, int]:
+    """(readiness, coverage). Unmeasured requirements count as 0: readiness must be proven."""
+    total_weight = sum(r["weight"] for r in rows) or 1
+    readiness = round(sum(r["weight"] * (r["score"] or 0) for r in rows) / total_weight)
+    coverage = round(100 * sum(1 for r in rows if r["score"] is not None) / (len(rows) or 1))
+    return readiness, coverage
+
+
+def compute_readiness(target: TargetRole, evidence: list[Evidence],
+                      now: datetime | None = None) -> dict:
+    now = now or datetime.now(timezone.utc)
+    rows = _requirement_scores(target, evidence, now)
+    readiness, coverage = _overall(rows)
+
+    # Trend: readiness as of the end of each day that had new evidence (plus today).
+    days = sorted({_as_utc(e.created_at).date() for e in evidence
+                   if e.requirement_key and (now - _as_utc(e.created_at)).days <= 90})
+    trend = []
+    for day in days:
+        end = min(now, datetime.combine(day, datetime.max.time(), tzinfo=timezone.utc))
+        score, _ = _overall(_requirement_scores(target, evidence, end))
+        trend.append({"date": day.isoformat(), "score": score})
+    if not trend or trend[-1]["date"] != now.date().isoformat():
+        trend.append({"date": now.date().isoformat(), "score": readiness})
+
+    order = sorted(rows, key=lambda r: (not r["must_have"], -r["weight"],
+                                        r["score"] if r["score"] is not None else -1))
+    return {"score": readiness, "coverage": coverage, "requirements": order, "trend": trend}
+
+
+def next_actions(target: TargetRole, computed: dict, evidence: list[Evidence],
+                 now: datetime | None = None, limit: int = 4) -> list[dict]:
+    """Rule-based suggestions for the step that will move readiness the most."""
+    now = now or datetime.now(timezone.utc)
+    rows = computed["requirements"]
+    actions: list[dict] = []
+
+    def recent(source: str, days: int) -> bool:
+        return any(e.source == source and (now - _as_utc(e.created_at)).days < days for e in evidence)
+
+    unmeasured = [r for r in rows if r["score"] is None and r["kind"] == "skill"]
+    unmeasured.sort(key=lambda r: (not r["must_have"], -r["weight"]))
+    if unmeasured:
+        names = [r["name"] for r in unmeasured[:3]]
+        actions.append({
+            "type": "assessment",
+            "title": f"Measure {', '.join(names)}",
+            "description": "These requirements have no evidence yet. A 10-question assessment "
+                           "turns them into a score.",
+            "href": "/skill-assessment?skills=" + quote(",".join(names)),
+        })
+
+    if not recent("resume", 30):
+        actions.append({
+            "type": "resume",
+            "title": f"Tailor your resume for {target.title}",
+            "description": "Analyse your resume against this role's requirements and missing keywords.",
+            "href": "/resume-tips?useTarget=1",
+        })
+
+    if not recent("deep_interview", 14):
+        actions.append({
+            "type": "deep_interview",
+            "title": "Defend your resume in a mock interview",
+            "description": "An interviewer probes the claims on your resume for this role, with "
+                           "follow-up questions.",
+            "href": "/practice-interview?mode=deep",
+        })
+
+    weak = [r for r in rows if r["score"] is not None and r["score"] < 60]
+    weak.sort(key=lambda r: (not r["must_have"], r["score"]))
+    if weak:
+        r = weak[0]
+        actions.append({
+            "type": "improve",
+            "title": f"Close your gap in {r['name']} ({r['score']}/100)",
+            "description": "Retake an assessment to get a learning path built from your mistakes.",
+            "href": "/skill-assessment?skills=" + quote(r["name"]),
+        })
+    return actions[:limit]
