@@ -44,6 +44,7 @@ DEFAULT_COSTS: dict[str, int] = {
     "target_role_setup": 2,
     "deep_interview_start": 3,
     "deep_interview_report": 3,
+    "resume_tailor": 4,
 }
 
 

@@ -27,6 +27,7 @@ from .routers import (
     market,
     readiness,
     resume,
+    tailor,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -79,7 +80,7 @@ def create_app() -> FastAPI:
                             content={"detail": f"Invalid {field}: {first.get('msg', 'bad value')}"})
 
     for module in (auth, billing, resume, assessment, interview, job_match, career, chat, market,
-                   readiness, deep_interview):
+                   readiness, deep_interview, tailor):
         app.include_router(module.router)
 
     @app.get("/api/health", include_in_schema=False)

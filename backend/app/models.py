@@ -132,3 +132,20 @@ class DeepInterview(Base):
     overall_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TailoredResume(Base):
+    """A resume version tailored to one job. Users can edit, export and delete it."""
+
+    __tablename__ = "tailored_resumes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    target_role_id: Mapped[int | None] = mapped_column(ForeignKey("target_roles.id"), nullable=True)
+    job_title: Mapped[str] = mapped_column(String(120), default="")
+    company: Mapped[str] = mapped_column(String(120), default="")
+    job_description: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[dict] = mapped_column(JSON)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)  # changes, keywords, warnings
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
