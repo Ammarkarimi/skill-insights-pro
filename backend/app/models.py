@@ -63,3 +63,19 @@ class InterviewSession(Base):
     overall_score: Mapped[int] = mapped_column(Integer)
     data: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AssessmentSession(Base):
+    """A generated MCQ assessment. The answer key never leaves the server until submission."""
+
+    __tablename__ = "assessment_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    skills: Mapped[list] = mapped_column(JSON)
+    difficulty: Mapped[str] = mapped_column(String(20))
+    questions: Mapped[list] = mapped_column(JSON)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

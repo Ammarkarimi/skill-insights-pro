@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..credits import charge
 from ..db import get_db
-from ..models import User
+from ..models import AssessmentSession, User, utcnow
 from ..security import current_user
 from ..services import assessment as svc
 
@@ -24,28 +24,52 @@ def questions(body: QuestionsIn, response: Response, user: User = Depends(curren
               db: Session = Depends(get_db)):
     skills = [s.strip()[:60] for s in body.skills if s.strip()]
     with charge(db, user, "assessment_questions", response):
-        return {"questions": svc.generate_questions(skills, body.difficulty, body.count, user.id)}
+        generated = svc.generate_questions(skills, body.difficulty, body.count, user.id)
+    session = AssessmentSession(user_id=user.id, skills=skills, difficulty=body.difficulty,
+                                questions=generated)
+    db.add(session)
+    db.commit()
+    return {"sessionId": session.id, "questions": svc.public_questions(generated)}
 
 
-class QuestionResult(BaseModel):
-    question: str = Field(max_length=2000)
-    topic: str = Field(default="", max_length=200)
-    skill: str = Field(default="", max_length=100)
-    user_answer: str = Field(default="", max_length=1000)
-    correct_answer: str = Field(default="", max_length=1000)
-    is_correct: bool
+def _own_session(db: Session, user: User, session_id: int) -> AssessmentSession:
+    session = db.get(AssessmentSession, session_id)
+    if session is None or session.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Assessment not found.")
+    return session
+
+
+class SubmitIn(BaseModel):
+    # question id -> chosen option letter ("" or missing = unanswered)
+    answers: dict[int, str] = Field(max_length=20)
+
+
+@router.post("/{session_id}/submit")
+def submit(session_id: int, body: SubmitIn, user: User = Depends(current_user),
+           db: Session = Depends(get_db)):
+    session = _own_session(db, user, session_id)
+    if session.result is not None:  # idempotent: a double-click or retry returns the same grade
+        return {"sessionId": session.id, **session.result}
+    answers = {qid: a.strip().upper()[:1] for qid, a in body.answers.items()}
+    result = svc.grade(session.questions, answers)
+    session.result = result
+    session.score = result["score"]
+    session.submitted_at = utcnow()
+    db.commit()
+    return {"sessionId": session.id, **result}
 
 
 class LearningPathIn(BaseModel):
-    skills: list[str] = Field(min_length=1, max_length=8)
-    difficulty: svc.Difficulty
-    score: int = Field(ge=0, le=100)
-    results: list[QuestionResult] = Field(min_length=1, max_length=20)
+    session_id: int
 
 
 @router.post("/learning-path")
 def learning_path(body: LearningPathIn, response: Response, user: User = Depends(current_user),
                   db: Session = Depends(get_db)):
+    session = _own_session(db, user, body.session_id)
+    if session.result is None:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "Submit the assessment before requesting a learning path.")
     with charge(db, user, "learning_path", response):
-        return svc.build_learning_path(body.skills, body.difficulty, body.score,
-                                       [r.model_dump() for r in body.results], user.id)
+        return svc.build_learning_path(session.skills, session.difficulty, session.result["score"],
+                                       svc.learning_path_inputs(session.result["questions"]), user.id)

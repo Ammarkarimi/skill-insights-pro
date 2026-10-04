@@ -46,8 +46,9 @@ interface Question {
   question: string;
   code: string | null;
   options: Record<string, string>;
-  answer: string;
-  explanation: string;
+  // Only present after the server grades the submission.
+  answer?: string;
+  explanation?: string;
   topic: string;
   skill: string;
 }
@@ -97,6 +98,7 @@ const SkillAssessment: React.FC = () => {
   const [techStacks, setTechStacks] = useState<TechStack[]>([]);
   const [newSkill, setNewSkill] = useState("");
   const [difficulty, setDifficulty] = useState("");
+  const [sessionId, setSessionId] = useState<number | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -156,11 +158,12 @@ const SkillAssessment: React.FC = () => {
   const startTest = async () => {
     setIsLoading(true);
     try {
-      const { data } = await api.post<{ questions: Question[] }>("/api/assessment/questions", {
+      const { data } = await api.post<{ sessionId: number; questions: Question[] }>("/api/assessment/questions", {
         skills: selectedSkills,
         difficulty,
         count: 10,
       });
+      setSessionId(data.sessionId);
       setQuestions(data.questions);
       setCurrent(0);
       setAnswers({});
@@ -174,10 +177,22 @@ const SkillAssessment: React.FC = () => {
     }
   };
 
-  const finishTest = () => {
-    const correct = questions.filter((q) => answers[q.id] === q.answer).length;
-    setScore(Math.round((correct / questions.length) * 100));
-    setStage(Stage.Results);
+  const finishTest = async () => {
+    if (sessionId === null) return;
+    setIsLoading(true);
+    try {
+      // Grading happens on the server; the answer key is only revealed after submission.
+      const { data } = await api.post<{ score: number; questions: Question[] }>(`/api/assessment/${sessionId}/submit`, {
+        answers,
+      });
+      setQuestions(data.questions);
+      setScore(data.score);
+      setStage(Stage.Results);
+    } catch (err) {
+      fail("Could not submit your answers", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const unanswered = questions.filter((q) => !answers[q.id]).length;
@@ -185,19 +200,7 @@ const SkillAssessment: React.FC = () => {
   const generatePath = async () => {
     setIsLoading(true);
     try {
-      const { data } = await api.post<LearningPath>("/api/assessment/learning-path", {
-        skills: selectedSkills,
-        difficulty,
-        score,
-        results: questions.map((q) => ({
-          question: q.question,
-          topic: q.topic,
-          skill: q.skill,
-          user_answer: answers[q.id] ? `${answers[q.id]}: ${q.options[answers[q.id]]}` : "",
-          correct_answer: `${q.answer}: ${q.options[q.answer]}`,
-          is_correct: answers[q.id] === q.answer,
-        })),
-      });
+      const { data } = await api.post<LearningPath>("/api/assessment/learning-path", { session_id: sessionId });
       setPath(data);
       setStage(Stage.Path);
     } catch (err) {
@@ -213,6 +216,7 @@ const SkillAssessment: React.FC = () => {
     setCategory("");
     setPrimaryRole("");
     setDifficulty("");
+    setSessionId(null);
     setQuestions([]);
     setAnswers({});
     setScore(null);
@@ -490,7 +494,10 @@ const SkillAssessment: React.FC = () => {
               {current < questions.length - 1 ? (
                 <Button onClick={() => setCurrent(current + 1)}>Next</Button>
               ) : (
-                <Button onClick={finishTest}>{unanswered > 0 ? `Finish (${unanswered} unanswered)` : "Finish"}</Button>
+                <Button onClick={finishTest} disabled={isLoading}>
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {unanswered > 0 ? `Finish (${unanswered} unanswered)` : "Finish"}
+                </Button>
               )}
             </CardFooter>
           </Card>

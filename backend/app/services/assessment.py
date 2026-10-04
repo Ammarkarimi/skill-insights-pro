@@ -92,6 +92,52 @@ def generate_questions(skills: list[str], difficulty: Difficulty, count: int,
     return questions
 
 
+_SECRET_FIELDS = ("answer", "explanation")
+
+
+def public_questions(questions: list[dict]) -> list[dict]:
+    """Questions as shown during the test: no answer key, no explanations."""
+    return [{k: v for k, v in q.items() if k not in _SECRET_FIELDS} for q in questions]
+
+
+def grade(questions: list[dict], answers: dict[int, str]) -> dict:
+    """Grade submitted answers server-side; returns the full review including explanations."""
+    per_skill: dict[str, dict] = {}
+    graded = []
+    for q in questions:
+        given = answers.get(q["id"], "")
+        ok = given == q["answer"]
+        bucket = per_skill.setdefault(q.get("skill") or "General", {"correct": 0, "total": 0})
+        bucket["total"] += 1
+        bucket["correct"] += int(ok)
+        graded.append({**q, "user_answer": given, "is_correct": ok})
+    correct = sum(1 for g in graded if g["is_correct"])
+    for bucket in per_skill.values():
+        bucket["score"] = round(100 * bucket["correct"] / bucket["total"])
+    return {
+        "score": round(100 * correct / len(graded)) if graded else 0,
+        "correct": correct,
+        "total": len(graded),
+        "perSkill": per_skill,
+        "questions": graded,
+    }
+
+
+def learning_path_inputs(graded: list[dict]) -> list[dict]:
+    """Shape graded questions for the learning-path prompt."""
+    def label(g: dict, key: str) -> str:
+        return f"{key}: {g['options'].get(key, '')}" if key else ""
+
+    return [{
+        "question": g["question"],
+        "topic": g.get("topic", ""),
+        "skill": g.get("skill", ""),
+        "user_answer": label(g, g["user_answer"]),
+        "correct_answer": label(g, g["answer"]),
+        "is_correct": g["is_correct"],
+    } for g in graded]
+
+
 # ---------------------------------------------------------------- learning path
 class Resource(BaseModel):
     title: str

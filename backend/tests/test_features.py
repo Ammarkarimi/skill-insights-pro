@@ -76,32 +76,68 @@ def mcq(answer="B", dup=False):
             "explanation": "because", "topic": "t", "skill": "Python"}
 
 
-def test_mcqs_keep_correct_answer_after_shuffle(client, user, fake_llm):
-    fake_llm.push({"questions": [mcq("B") for _ in range(6)] + [mcq("A", dup=True)]})
+def _start_assessment(client, fake_llm, n=6):
+    fake_llm.push({"questions": [mcq("B") for _ in range(n)] + [mcq("A", dup=True)]})
     r = client.post("/api/assessment/questions",
                     json={"skills": ["Python"], "difficulty": "beginner", "count": 5})
     assert r.status_code == 200, r.text
-    qs = r.json()["questions"]
-    assert len(qs) == 5
-    for q in qs:
-        assert q["options"][q["answer"]] == "opt B"
+    return r.json()
+
+
+def test_questions_hide_answer_key(client, user, fake_llm):
+    body = _start_assessment(client, fake_llm)
+    assert len(body["questions"]) == 5
+    for q in body["questions"]:
+        assert "answer" not in q and "explanation" not in q
         assert q["code"] is None
 
 
-def test_learning_path_replaces_dead_links(client, user, fake_llm):
+def test_submit_grades_server_side_and_is_idempotent(client, user, fake_llm):
+    body = _start_assessment(client, fake_llm)
+    qs = body["questions"]
+    # The correct option is the one whose text is "opt B" after shuffling.
+    right = lambda q: next(k for k, v in q["options"].items() if v == "opt B")  # noqa: E731
+    wrong = lambda q: next(k for k, v in q["options"].items() if v != "opt B")  # noqa: E731
+    answers = {q["id"]: right(q) for q in qs[:3]}
+    answers[qs[3]["id"]] = wrong(qs[3])
+    r = client.post(f"/api/assessment/{body['sessionId']}/submit", json={"answers": answers})
+    assert r.status_code == 200, r.text
+    result = r.json()
+    assert (result["correct"], result["total"], result["score"]) == (3, 5, 60)
+    assert result["perSkill"]["Python"] == {"correct": 3, "total": 5, "score": 60}
+    assert all("explanation" in q for q in result["questions"])
+    # A second submission (e.g. with better answers) cannot change the grade.
+    all_right = {q["id"]: right(q) for q in qs}
+    again = client.post(f"/api/assessment/{body['sessionId']}/submit", json={"answers": all_right}).json()
+    assert again["score"] == 60
+
+
+def test_assessment_sessions_are_private(client, user, fake_llm):
+    body = _start_assessment(client, fake_llm)
+    client.post("/api/auth/logout")
+    register(client, email="eve@example.com")
+    r = client.post(f"/api/assessment/{body['sessionId']}/submit", json={"answers": {}})
+    assert r.status_code == 404
+
+
+def test_learning_path_requires_submission_and_replaces_dead_links(client, user, fake_llm):
+    body = _start_assessment(client, fake_llm)
+    sid = body["sessionId"]
+    assert client.post("/api/assessment/learning-path", json={"session_id": sid}).status_code == 409
+    client.post(f"/api/assessment/{sid}/submit", json={"answers": {}})
     res = lambda link: {"title": "Django docs", "type": "documentation", "provider": "Django",  # noqa: E731
                         "link": link, "description": "d", "focus_area": "ORM",
                         "estimated_hours": 3, "free": True}
     fake_llm.push({"title": "Path", "summary": "s", "strengths": [], "focus_areas": [],
                    "resources": [res("https://docs.djangoproject.com/"), res("https://dead.example.org/x")],
                    "weekly_plan": [], "capstone_project": "Build it"})
-    r = client.post("/api/assessment/learning-path", json={
-        "skills": ["Django"], "difficulty": "beginner", "score": 40,
-        "results": [{"question": "Q", "user_answer": "A", "correct_answer": "B", "is_correct": False}]})
+    r = client.post("/api/assessment/learning-path", json={"session_id": sid})
     assert r.status_code == 200, r.text
     links = r.json()["learningPath"]
     assert links[0]["link"] == "https://docs.djangoproject.com/" and links[0]["link_verified"]
     assert links[1]["link"].startswith("https://www.google.com/search?q=") and not links[1]["link_verified"]
+    prompt = fake_llm.calls[-1][1]["prompt"]
+    assert "Score: 0%" in prompt and "WRONG" in prompt
 
 
 def match_payload(pct):
