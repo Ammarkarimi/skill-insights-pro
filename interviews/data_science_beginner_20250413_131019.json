@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-04-13T13:10:19.073745",
+  "topic": "Data Science",
+  "difficulty": "beginner",
+  "num_questions": 4,
+  "answers": [
+    {
+      "question": "Explain the difference between supervised and unsupervised learning in the context of data science. Provide an example of each.",
+      "expectedAnswer": "Supervised learning uses labeled datasets, meaning each data point is tagged with the correct answer.  The algorithm learns to map inputs to outputs based on this labeled data.  A common example is image classification, where images are labeled with the objects they contain (e.g., cat, dog). The algorithm learns to predict the label given a new, unseen image.  Unsupervised learning, on the other hand, uses unlabeled datasets. The algorithm aims to find patterns, structures, or relationships within the data without explicit guidance. A common example is clustering, where the algorithm groups similar data points together without knowing beforehand what the groups represent.  For instance, clustering customer data might reveal distinct customer segments based on purchasing behavior.",
+      "userAnswer": "Don't know."
+    },
+    {
+      "question": "What is bias-variance tradeoff? Explain its significance in model selection.",
+      "expectedAnswer": "The bias-variance tradeoff describes the balance between a model's ability to fit the training data (low bias) and its ability to generalize to unseen data (low variance). High bias indicates underfitting \u2013 the model is too simple and doesn't capture the underlying patterns in the data. High variance indicates overfitting \u2013 the model is too complex and learns the noise in the training data, performing poorly on new data.  The goal is to find a model that minimizes both bias and variance.  In model selection, we might compare different models (e.g., linear regression vs. a complex decision tree) and choose the one that achieves the best balance, often through techniques like cross-validation.",
+      "userAnswer": "Hello. Hello."
+    },
+    {
+      "question": "Describe the difference between precision and recall in classification problems.  When would you prioritize one over the other?",
+      "expectedAnswer": "Precision measures the accuracy of positive predictions. It answers: \"Out of all the instances predicted as positive, what proportion was actually positive?\"  Recall (or sensitivity) measures the ability of the model to find all the positive instances. It answers: \"Out of all the actual positive instances, what proportion did the model correctly identify?\"  The choice between prioritizing precision or recall depends on the specific problem. If false positives are very costly (e.g., incorrectly diagnosing a disease), we prioritize precision. If false negatives are more costly (e.g., missing a terrorist in airport security), we prioritize recall.",
+      "userAnswer": "Don't know the answer."
+    },
+    {
+      "question": "What are some common data cleaning techniques? Explain one in detail.",
+      "expectedAnswer": "Common data cleaning techniques include handling missing values (imputation, removal), outlier detection and treatment (removal, transformation), and data transformation (normalization, standardization).  Let's look at handling missing values.  One common technique is imputation, where we replace missing values with estimated values.  Several methods exist, such as mean/median/mode imputation (replacing with the average, median, or most frequent value for that feature), k-Nearest Neighbors imputation (using values from similar data points), or more sophisticated methods using machine learning models to predict the missing values. The choice of method depends on the nature of the data and the amount of missingness.  Simply removing rows with missing values can lead to information loss, especially if there's a significant amount of missing data.",
+      "userAnswer": "Please give me again."
+    }
+  ]
+}

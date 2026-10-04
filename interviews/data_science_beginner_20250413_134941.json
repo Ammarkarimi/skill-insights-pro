@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-04-13T13:49:41.597080",
+  "topic": "Data Science",
+  "difficulty": "beginner",
+  "num_questions": 4,
+  "answers": [
+    {
+      "question": "Explain the difference between supervised and unsupervised learning in the context of data science. Provide an example of each.",
+      "expectedAnswer": "Supervised learning uses labeled datasets, meaning the data includes both input features and the corresponding output or target variable.  The algorithm learns to map inputs to outputs based on the labeled examples.  A common example is image classification where images (input) are labeled with the object they depict (output). The algorithm learns to predict the object in a new, unseen image.  Unsupervised learning, on the other hand, uses unlabeled datasets. The algorithm aims to discover hidden patterns, structures, or relationships in the data without any predefined output. A common example is clustering, where the algorithm groups similar data points together based on their inherent characteristics. For example, customer segmentation based on purchasing behavior without pre-defined customer groups.",
+      "userAnswer": "Supervised learning contains the labeled data set, whereas unsupervised learning contains the unlabeled data set. For example of supervised learning how supervised prediction whereas unsupervised learning contains.Exam scores netted sparse and fail."
+    },
+    {
+      "question": "What is bias-variance tradeoff?  Explain its importance in model building.",
+      "expectedAnswer": "The bias-variance tradeoff describes the relationship between a model's complexity and its ability to generalize to unseen data. High bias means the model is too simple and makes strong assumptions about the data, leading to underfitting (high error on both training and test data). High variance means the model is too complex and overfits the training data, capturing noise instead of the underlying patterns, resulting in low error on training data but high error on test data.  The goal is to find a balance \u2013 a model that is complex enough to capture the underlying patterns but not so complex that it overfits.  Techniques like cross-validation and regularization help manage this tradeoff.",
+      "userAnswer": "Buyers basically refers to when a model is strained on the training data and it has been very much trained on retaining data and does not perform well on the testing data."
+    },
+    {
+      "question": "Describe the difference between accuracy, precision, and recall.  When might you prioritize one over the others?",
+      "expectedAnswer": "Accuracy is the overall correctness of a model's predictions. It's the ratio of correctly classified instances to the total number of instances. Precision measures the proportion of correctly predicted positive instances out of all instances predicted as positive.  Recall (or sensitivity) measures the proportion of correctly predicted positive instances out of all actual positive instances.  You might prioritize recall over precision in scenarios where false negatives are more costly than false positives (e.g., disease diagnosis \u2013 it's better to have some false positives than to miss a true positive). Conversely, you might prioritize precision if false positives are more costly (e.g., spam detection \u2013 it's better to miss some spam than to incorrectly flag legitimate emails as spam).",
+      "userAnswer": "Accuracy basically tells us how much the model is accurate. It has different formulas based on the confusion matrix. That is true positive through negative, false positive, and false negative based on that. In the same way we have precision in a recall."
+    },
+    {
+      "question": "What is a confusion matrix and how is it used to evaluate a classification model?",
+      "expectedAnswer": "A confusion matrix is a table that visualizes the performance of a classification model. It shows the counts of true positives (correctly predicted positive instances), true negatives (correctly predicted negative instances), false positives (incorrectly predicted positive instances), and false negatives (incorrectly predicted negative instances).  It's used to calculate various metrics like accuracy, precision, recall, and F1-score, providing a comprehensive understanding of the model's performance across different classes. Analyzing the confusion matrix helps identify weaknesses in the model, such as a tendency to misclassify certain classes more frequently than others.",
+      "userAnswer": "Confusion matrix is used to find out the final answer. That is, it is used to find out it through positive, through negative, positive and false positive, false negative.Based on other model."
+    }
+  ]
+}

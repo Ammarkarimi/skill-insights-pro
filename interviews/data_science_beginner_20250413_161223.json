@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-04-13T16:12:23.858805",
+  "topic": "Data Science",
+  "difficulty": "beginner",
+  "num_questions": 4,
+  "answers": [
+    {
+      "question": "Explain the difference between supervised and unsupervised learning in the context of data science. Provide examples of each.",
+      "expectedAnswer": "Supervised learning uses labeled datasets, meaning each data point is tagged with the correct answer.  The algorithm learns to map inputs to outputs based on this labeled data.  Examples include: linear regression (predicting a continuous value), logistic regression (predicting a binary outcome), and support vector machines (classification).  Unsupervised learning, on the other hand, uses unlabeled datasets. The algorithm aims to discover hidden patterns, structures, or groupings in the data without explicit guidance. Examples include: k-means clustering (grouping similar data points), principal component analysis (dimensionality reduction), and association rule mining (finding relationships between variables).",
+      "userAnswer": "Supervisor contains the label data set and unsupervised contains the unlabeled data set."
+    },
+    {
+      "question": "What is bias-variance tradeoff?  Explain its significance in model building.",
+      "expectedAnswer": "The bias-variance tradeoff describes the balance between a model's ability to fit the training data (low bias) and its ability to generalize to unseen data (low variance). High bias (underfitting) means the model is too simple to capture the underlying patterns in the data, resulting in poor performance on both training and test data. High variance (overfitting) means the model is too complex and learns the training data too well, including its noise, leading to excellent performance on training data but poor performance on unseen data.  The goal is to find a sweet spot that minimizes both bias and variance, resulting in a model that generalizes well to new data.",
+      "userAnswer": "Sorry, I don't know the answer."
+    },
+    {
+      "question": "Describe the steps involved in a typical data science project lifecycle.",
+      "expectedAnswer": "A typical data science project lifecycle generally involves these steps: 1. **Problem Definition:** Clearly defining the business problem and the goals of the project. 2. **Data Collection:** Gathering relevant data from various sources. 3. **Data Cleaning and Preprocessing:** Handling missing values, outliers, and transforming data into a suitable format for analysis. 4. **Exploratory Data Analysis (EDA):**  Analyzing the data to understand its characteristics, identify patterns, and form hypotheses. 5. **Feature Engineering:** Selecting, transforming, and creating new features to improve model performance. 6. **Model Selection and Training:** Choosing appropriate machine learning algorithms and training them on the prepared data. 7. **Model Evaluation:** Assessing the performance of the trained model using appropriate metrics. 8. **Deployment and Monitoring:** Deploying the model into a production environment and continuously monitoring its performance.",
+      "userAnswer": "Data cleaning, feature engineering, model training done."
+    },
+    {
+      "question": "Explain the concept of 'Accuracy' and 'Precision' in the context of classification problems.  When might you prefer one over the other?",
+      "expectedAnswer": "In classification, accuracy measures the overall correctness of the model's predictions (the proportion of correctly classified instances). Precision, on the other hand, measures the accuracy of the positive predictions; specifically, it's the proportion of correctly predicted positive instances out of all instances predicted as positive. You'd prefer precision over accuracy when the cost of false positives is high.  For example, in a spam detection system, a high precision is crucial \u2013 you'd rather miss some spam (false negative) than incorrectly label legitimate emails as spam (false positive). Accuracy is a good general metric, but when dealing with imbalanced datasets or situations where the cost of different types of errors is unequal, precision (and recall) become more important.",
+      "userAnswer": "Sorry, I don't know the answer."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-04-13T12:04:36.924806",
+  "topic": "Data Science",
+  "difficulty": "beginner",
+  "num_questions": 4,
+  "answers": [
+    {
+      "question": "Explain the difference between supervised and unsupervised learning in the context of data science.  Provide an example of each.",
+      "answer": "Supervise learning congestion labeled data set whereas unsupervised learning congestion unlabeled data set."
+    },
+    {
+      "question": "What is the purpose of data cleaning in a data science project? Describe two common data cleaning techniques.",
+      "answer": "Data cleaning basically refers to cleaning of the data net. Help us to gather the proper data set."
+    },
+    {
+      "question": "Explain the concept of bias-variance tradeoff in machine learning. How does it relate to model performance?",
+      "answer": "I don't know this answer."
+    },
+    {
+      "question": "What is a confusion matrix, and how is it used to evaluate the performance of a classification model?",
+      "answer": "It is great for measuring the accuracy recall."
+    }
+  ]
+}

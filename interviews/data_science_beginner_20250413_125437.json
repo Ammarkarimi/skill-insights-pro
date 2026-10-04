@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-04-13T12:54:37.209133",
+  "topic": "Data Science",
+  "difficulty": "beginner",
+  "num_questions": 4,
+  "answers": [
+    {
+      "question": "Explain the difference between supervised and unsupervised learning in the context of data science.  Provide an example of each.",
+      "expectedAnswer": "Supervised learning uses labeled datasets, meaning each data point is tagged with the correct answer.  The algorithm learns to map inputs to outputs based on this labeled data.  An example is classifying emails as spam or not spam, where the training data includes emails already labeled as spam or not spam.  Unsupervised learning, on the other hand, uses unlabeled data. The algorithm aims to find patterns, structures, or relationships within the data without explicit guidance.  An example is customer segmentation, where you might group customers based on their purchasing behavior without pre-defined customer segments.",
+      "userAnswer": "Superoise contains labeled data set whereas unsupervised contests and labeled data set."
+    },
+    {
+      "question": "What is the purpose of data cleaning, and what are some common data cleaning techniques?",
+      "expectedAnswer": "Data cleaning, also known as data cleansing, is the process of identifying and correcting (or removing) inaccurate, incomplete, irrelevant, duplicated, or inconsistent data within a dataset.  The purpose is to improve data quality, ensuring the reliability and validity of any analysis or modeling performed on the data. Common techniques include handling missing values (imputation or removal), dealing with outliers (removal, transformation, or capping), identifying and correcting inconsistencies (e.g., standardizing formats), and removing duplicates.",
+      "userAnswer": "Duggling data cleaning basically refers to cleaning of the data."
+    },
+    {
+      "question": "Describe the bias-variance tradeoff in the context of machine learning models. How does it affect model performance?",
+      "expectedAnswer": "The bias-variance tradeoff describes the relationship between a model's ability to fit the training data (variance) and its ability to generalize to unseen data (bias). High bias means the model is too simple and underfits the data, failing to capture important relationships.  This leads to poor performance on both training and test data. High variance means the model is too complex and overfits the data, capturing noise instead of the underlying patterns. This leads to good performance on the training data but poor performance on unseen data.  The goal is to find a balance between bias and variance to achieve optimal model performance on new data.",
+      "userAnswer": "Don't know the answer."
+    },
+    {
+      "question": "What is a confusion matrix, and how is it used to evaluate the performance of a classification model?",
+      "expectedAnswer": "A confusion matrix is a table used to evaluate the performance of a classification model. It shows the counts of true positive, true negative, false positive, and false negative predictions.  Specifically:\n* True Positive (TP): Correctly predicted positive cases.\n* True Negative (TN): Correctly predicted negative cases.\n* False Positive (FP): Incorrectly predicted positive cases (Type I error).\n* False Negative (FN): Incorrectly predicted negative cases (Type II error).\nFrom the confusion matrix, various metrics like accuracy, precision, recall, and F1-score can be calculated to comprehensively assess the model's performance.",
+      "userAnswer": "I don't know."
+    }
+  ]
+}
