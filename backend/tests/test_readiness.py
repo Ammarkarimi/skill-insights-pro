@@ -175,3 +175,71 @@ def test_readiness_endpoint(client, user, fake_llm):
     assert body["coverage"] == 75
     assert body["actions"][0]["type"] == "resume"
     assert len(body["trend"]) == 1
+
+
+# ---------------------------------------------------------------- evidence hooks
+def _evidence(source=None):
+    with SessionLocal() as db:
+        q = db.query(Evidence)
+        if source:
+            q = q.filter(Evidence.source == source)
+        return [(e.requirement_key, e.skill, e.score) for e in q.order_by(Evidence.id).all()]
+
+
+def test_assessment_submit_records_difficulty_scaled_evidence(client, user, fake_llm):
+    from tests.test_features import mcq
+
+    create_target(client, fake_llm)
+    fake_llm.push({"questions": [{**mcq("B"), "skill": "React"} for _ in range(5)]})
+    body = client.post("/api/assessment/questions",
+                       json={"skills": ["React"], "difficulty": "beginner", "count": 5}).json()
+    answers = {q["id"]: next(k for k, v in q["options"].items() if v == "opt B") for q in body["questions"]}
+    client.post(f"/api/assessment/{body['sessionId']}/submit", json={"answers": answers})
+    client.post(f"/api/assessment/{body['sessionId']}/submit", json={"answers": answers})  # no duplicate
+    assert _evidence("assessment") == [("react", "React", 70)]  # 100% at beginner level -> 70
+
+
+def test_resume_analysis_records_evidence_only_for_target(client, user, fake_llm):
+    from tests.test_features import analysis_payload
+
+    create_target(client, fake_llm, jd="Frontend role requiring React and TypeScript experience.")
+    files = lambda: {"resume": ("cv.txt", io.BytesIO(RESUME.encode()), "text/plain")}  # noqa: E731
+    fake_llm.push(analysis_payload([]))
+    client.post("/api/resume/analyze", files=files())
+    assert _evidence("resume") == []
+
+    fake_llm.push(analysis_payload([]))
+    r = client.post("/api/resume/analyze", files=files(), data={"use_target": "true"})
+    assert r.json()["targetRole"]["title"] == "Frontend Engineer"
+    prompt = fake_llm.calls[-1][1]["prompt"]
+    assert "Target role: Frontend Engineer" in prompt and "React and TypeScript" in prompt
+    # Skill requirements only: React is in the resume, TypeScript and REST API design are not.
+    assert _evidence("resume") == [("react", "React", 75), ("typescript", "TypeScript", 20),
+                                   ("rest-api-design", "REST API design", 20)]
+
+
+def test_interview_records_evidence(client, user, fake_llm):
+    fake_llm.push({**requirement_map(), "requirements": [*requirement_map()["requirements"],
+                   req("Communication", kind="practice", must=False, weight=1)]})
+    client.post("/api/readiness/targets", data={"title": "Frontend Engineer"})
+    fb = {"score": 7, "verdict": "good", "strengths": [], "improvements": [], "model_answer": "m"}
+    for topic in ("React", "Frontend Development"):
+        fake_llm.push({"answers": [fb], "overall": {"overall_score": 66, "readiness": "almost_ready",
+                                                    "summary": "s", "communication": "c",
+                                                    "top_strengths": [], "focus_next": []}})
+        r = client.post("/api/interview/evaluate", json={
+            "topic": topic, "difficulty": "beginner", "answers": [{"question": "Q?", "answer": "A"}]})
+        assert r.status_code == 200, r.text
+    assert _evidence("interview") == [("react", "React", 66),
+                                      ("communication", "Frontend Development", 66)]
+
+
+def test_hooks_without_target_still_work(client, user, fake_llm):
+    from tests.test_features import mcq
+
+    fake_llm.push({"questions": [mcq("B") for _ in range(5)]})
+    body = client.post("/api/assessment/questions",
+                       json={"skills": ["Python"], "difficulty": "advanced", "count": 5}).json()
+    r = client.post(f"/api/assessment/{body['sessionId']}/submit", json={"answers": {}})
+    assert r.status_code == 200
+    assert _evidence("assessment") == [(None, "Python", 0)]

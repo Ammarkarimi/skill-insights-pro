@@ -8,6 +8,7 @@ from ..db import get_db
 from ..documents import resume_text_from_upload
 from ..models import User
 from ..security import current_user
+from ..services import readiness
 from ..services import resume as svc
 
 router = APIRouter(prefix="/api/resume", tags=["resume"])
@@ -27,7 +28,17 @@ def extract_skills(response: Response, resume: UploadFile = File(...),
 def analyze(response: Response, resume: UploadFile = File(...),
                   target_role: str = Form(default="", max_length=120),
                   job_description: str = Form(default="", max_length=12000),
+                  use_target: bool = Form(default=False),
                   user: User = Depends(current_user), db: Session = Depends(get_db)):
     text = resume_text_from_upload(resume)
+    target = readiness.active_target(db, user.id) if use_target else None
+    if target is not None:
+        # Analyse against the user's target role unless they supplied something more specific.
+        target_role = target_role.strip() or target.title
+        job_description = job_description.strip() or target.job_description
     with charge(db, user, "resume_analysis", response):
-        return svc.analyze_resume(text, target_role.strip(), job_description.strip(), user.id)
+        result = svc.analyze_resume(text, target_role.strip(), job_description.strip(), user.id)
+    if target is not None:
+        readiness.record_resume(db, user.id, target, text, result["overall_score"])
+        result["targetRole"] = {"id": target.id, "title": target.title}
+    return result

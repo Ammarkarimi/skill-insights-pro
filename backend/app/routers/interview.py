@@ -10,6 +10,7 @@ from ..db import get_db
 from ..models import InterviewSession, User
 from ..security import current_user
 from ..services import interview as svc
+from ..services import readiness
 from ..services.assessment import Difficulty
 
 router = APIRouter(prefix="/api/interview", tags=["interview"])
@@ -50,6 +51,7 @@ def evaluate(body: EvaluateIn, response: Response, user: User = Depends(current_
                                overall_score=result["overall"]["overall_score"], data=result)
     db.add(session)
     db.commit()
+    readiness.record_interview(db, user.id, body.topic, session.overall_score, session.id)
     return {**result, "id": session.id, "createdAt": session.created_at.isoformat()}
 
 

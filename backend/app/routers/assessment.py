@@ -9,6 +9,7 @@ from ..db import get_db
 from ..models import AssessmentSession, User, utcnow
 from ..security import current_user
 from ..services import assessment as svc
+from ..services import readiness
 
 router = APIRouter(prefix="/api/assessment", tags=["assessment"])
 
@@ -56,6 +57,7 @@ def submit(session_id: int, body: SubmitIn, user: User = Depends(current_user),
     session.score = result["score"]
     session.submitted_at = utcnow()
     db.commit()
+    readiness.record_assessment(db, user.id, session.id, session.difficulty, result["perSkill"])
     return {"sessionId": session.id, **result}
 
 

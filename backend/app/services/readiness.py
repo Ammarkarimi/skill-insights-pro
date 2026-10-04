@@ -257,3 +257,49 @@ def next_actions(target: TargetRole, computed: dict, evidence: list[Evidence],
             "href": "/skill-assessment?skills=" + quote(r["name"]),
         })
     return actions[:limit]
+
+
+# ---------------------------------------------------------------- evidence from existing features
+# A perfect beginner test should not count as fully proven for a professional role.
+DIFFICULTY_FACTOR = {"beginner": 0.7, "intermediate": 0.9, "advanced": 1.0}
+RESUME_PRESENT, RESUME_MISSING = 75, 20
+
+
+def record_assessment(db: Session, user_id: int, session_id: int, difficulty: str,
+                      per_skill: dict[str, dict]) -> None:
+    factor = DIFFICULTY_FACTOR.get(difficulty, 0.8)
+    target = active_target(db, user_id)
+    for skill, stats in per_skill.items():
+        record_evidence(db, user_id, "assessment", skill, round(stats["score"] * factor),
+                        payload={"sessionId": session_id, "difficulty": difficulty, **stats},
+                        target=target, commit=False)
+    db.commit()
+
+
+def _mentions(text: str, terms: list[str]) -> bool:
+    padded = f" {_norm(text)} "
+    return any(t and f" {t} " in padded for t in terms)
+
+
+def record_resume(db: Session, user_id: int, target: TargetRole, resume_text: str,
+                  overall_score: int) -> None:
+    """Skill requirements mentioned in the resume get partial credit; missing ones are flagged."""
+    for req in target.requirements:
+        if req["kind"] != "skill":
+            continue
+        present = _mentions(resume_text, [_norm(req["name"]), *req.get("aliases", [])])
+        record_evidence(db, user_id, "resume", req["name"], RESUME_PRESENT if present else RESUME_MISSING,
+                        payload={"present": present, "overallScore": overall_score},
+                        target=target, requirement_key=req["key"], commit=False)
+    db.commit()
+
+
+def record_interview(db: Session, user_id: int, topic: str, overall_score: int,
+                     interview_id: int) -> None:
+    target = active_target(db, user_id)
+    key = match_requirement(target, topic)
+    if key is None and target is not None:  # fall back to a communication-type requirement
+        key = next((r["key"] for r in target.requirements
+                    if r["kind"] == "practice" and "communicat" in r["name"].lower()), None)
+    record_evidence(db, user_id, "interview", topic, overall_score,
+                    payload={"interviewId": interview_id}, target=target, requirement_key=key)
