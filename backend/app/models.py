@@ -149,3 +149,22 @@ class TailoredResume(Base):
     meta: Mapped[dict] = mapped_column(JSON, default=dict)  # changes, keywords, warnings
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Negotiation(Base):
+    """A salary-negotiation practice session. `scenario` holds the hidden budget ceilings."""
+
+    __tablename__ = "negotiations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    role_title: Mapped[str] = mapped_column(String(120))
+    level: Mapped[str] = mapped_column(String(20))
+    location: Mapped[str] = mapped_column(String(120))
+    company_type: Mapped[str] = mapped_column(String(30))
+    scenario: Mapped[dict] = mapped_column(JSON)
+    offer: Mapped[dict] = mapped_column(JSON)
+    transcript: Mapped[list] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active|final|completed
+    report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

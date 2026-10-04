@@ -26,6 +26,7 @@ from .routers import (
     job_match,
     letters,
     market,
+    negotiation,
     readiness,
     resume,
     tailor,
@@ -81,7 +82,7 @@ def create_app() -> FastAPI:
                             content={"detail": f"Invalid {field}: {first.get('msg', 'bad value')}"})
 
     for module in (auth, billing, resume, assessment, interview, job_match, career, chat, market,
-                   readiness, deep_interview, tailor, letters):
+                   readiness, deep_interview, tailor, letters, negotiation):
         app.include_router(module.router)
 
     @app.get("/api/health", include_in_schema=False)
