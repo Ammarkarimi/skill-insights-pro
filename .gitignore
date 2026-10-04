@@ -1,0 +1,28 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Runtime data (never commit user data)
+*.db
+*.sqlite3
+uploads/
+interviews/
+*.csv
+
+# Node / build
+node_modules/
+client/dist/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
