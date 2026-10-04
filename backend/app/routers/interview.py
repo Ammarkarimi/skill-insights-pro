@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..credits import charge
 from ..db import get_db
-from ..models import InterviewSession, User
+from ..models import DeepInterview, InterviewSession, User
 from ..security import current_user
 from ..services import interview as svc
 from ..services import readiness
@@ -59,9 +59,16 @@ def evaluate(body: EvaluateIn, response: Response, user: User = Depends(current_
 def history(user: User = Depends(current_user), db: Session = Depends(get_db)):
     rows = db.scalars(select(InterviewSession).where(InterviewSession.user_id == user.id)
                       .order_by(InterviewSession.created_at.desc()).limit(30)).all()
-    return {"interviews": [{"id": r.id, "topic": r.topic, "difficulty": r.difficulty,
-                            "overallScore": r.overall_score,
-                            "createdAt": r.created_at.isoformat()} for r in rows]}
+    deep = db.scalars(select(DeepInterview).where(DeepInterview.user_id == user.id,
+                                                  DeepInterview.status == "completed")
+                      .order_by(DeepInterview.created_at.desc()).limit(30)).all()
+    items = [{"id": r.id, "kind": "quick", "topic": r.topic, "difficulty": r.difficulty,
+              "overallScore": r.overall_score, "createdAt": r.created_at.isoformat()} for r in rows]
+    items += [{"id": d.id, "kind": "deep", "topic": f"Defend your resume: {d.role_title}",
+               "difficulty": "adaptive", "overallScore": d.overall_score,
+               "createdAt": d.created_at.isoformat()} for d in deep]
+    items.sort(key=lambda x: x["createdAt"], reverse=True)
+    return {"interviews": items[:30]}
 
 
 @router.get("/{interview_id}")

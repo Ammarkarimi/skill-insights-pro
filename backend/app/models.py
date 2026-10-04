@@ -112,3 +112,23 @@ class Evidence(Base):
     score: Mapped[int] = mapped_column(Integer)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class DeepInterview(Base):
+    """A turn-based "defend your resume" interview. Stores quoted claims only, never the resume."""
+
+    __tablename__ = "deep_interviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    target_role_id: Mapped[int | None] = mapped_column(ForeignKey("target_roles.id"), nullable=True)
+    role_title: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active|ready|completed
+    plan: Mapped[list] = mapped_column(JSON)          # topics
+    transcript: Mapped[list] = mapped_column(JSON, default=list)
+    current_topic: Mapped[int] = mapped_column(Integer, default=0)
+    follow_ups: Mapped[int] = mapped_column(Integer, default=0)  # follow-ups asked in current topic
+    report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    overall_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
