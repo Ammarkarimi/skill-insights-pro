@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -79,3 +79,36 @@ class AssessmentSession(Base):
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TargetRole(Base):
+    """The job a user is working towards; its requirement map drives the readiness score."""
+
+    __tablename__ = "target_roles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    job_description: Mapped[str] = mapped_column(Text, default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    # [{key, name, kind, weight, must_have, aliases}]
+    requirements: Mapped[list] = mapped_column(JSON)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Evidence(Base):
+    """One scored observation of a skill (from an assessment, resume, interview...)."""
+
+    __tablename__ = "evidence"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    target_role_id: Mapped[int | None] = mapped_column(ForeignKey("target_roles.id"), nullable=True,
+                                                       index=True)
+    requirement_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    skill: Mapped[str] = mapped_column(String(120))
+    source: Mapped[str] = mapped_column(String(30))
+    score: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

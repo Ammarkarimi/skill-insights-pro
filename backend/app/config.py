@@ -41,6 +41,7 @@ DEFAULT_COSTS: dict[str, int] = {
     "job_match_per_resume": 2,
     "career_recommendations": 3,
     "market_insights": 2,
+    "target_role_setup": 2,
 }
 
 

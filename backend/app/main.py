@@ -15,7 +15,7 @@ from sqlalchemy import text
 
 from .config import get_settings
 from .db import SessionLocal, init_db
-from .routers import assessment, auth, billing, career, chat, interview, job_match, market, resume
+from .routers import assessment, auth, billing, career, chat, interview, job_match, market, readiness, resume
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("skillsphere")
@@ -66,7 +66,8 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=422,
                             content={"detail": f"Invalid {field}: {first.get('msg', 'bad value')}"})
 
-    for module in (auth, billing, resume, assessment, interview, job_match, career, chat, market):
+    for module in (auth, billing, resume, assessment, interview, job_match, career, chat, market,
+                   readiness):
         app.include_router(module.router)
 
     @app.get("/api/health", include_in_schema=False)
