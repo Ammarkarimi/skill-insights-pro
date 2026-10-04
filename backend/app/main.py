@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
@@ -28,6 +28,7 @@ from .routers import (
     letters,
     market,
     negotiation,
+    portfolio,
     projects,
     proof,
     readiness,
@@ -86,7 +87,7 @@ def create_app() -> FastAPI:
 
     for module in (auth, billing, resume, assessment, interview, job_match, career, chat, market,
                    readiness, deep_interview, tailor, letters, negotiation, proof, github,
-                   projects):
+                   projects, portfolio):
         app.include_router(module.router)
 
     @app.get("/api/health", include_in_schema=False)
@@ -109,6 +110,13 @@ def create_app() -> FastAPI:
             candidate = (dist / path).resolve()
             if path and candidate.is_file() and dist in candidate.parents:
                 return FileResponse(candidate)
+            if path.startswith("p/"):
+                # Public portfolios get link-preview tags (and noindex unless the owner opted in).
+                with SessionLocal() as db:
+                    shared = portfolio.share_page(db, path, (dist / "index.html").read_text())
+                if shared is not None:
+                    page, headers = shared
+                    return HTMLResponse(page, headers=headers)
             return FileResponse(dist / "index.html", headers={"Cache-Control": "no-cache"})
     else:
         log.info("Frontend build not found at %s; serving API only", dist)

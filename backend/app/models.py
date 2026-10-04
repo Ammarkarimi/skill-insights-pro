@@ -219,3 +219,21 @@ class ProjectReview(Base):
     review: Mapped[dict] = mapped_column(JSON)
     overall_score: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Portfolio(Base):
+    """A user's public proof page at /p/<slug>. Link-only (noindex) unless they opt in."""
+
+    __tablename__ = "portfolios"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    slug: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(120), default="")
+    headline: Mapped[str] = mapped_column(String(160), default="")
+    bio: Mapped[str] = mapped_column(Text, default="")
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    allow_indexing: Mapped[bool] = mapped_column(Boolean, default=False)
+    items: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
