@@ -1,22 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Layout from "@/components/Layout";
 import FileUpload from "@/components/FileUpload";
+import CostNote from "@/components/CostNote";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Check,
+  X,
   AlertTriangle,
   FileQuestion,
   Loader2,
@@ -24,31 +21,36 @@ import {
   BookOpen,
   ArrowRight,
   Download,
+  Plus,
+  Target,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-// Modified imports at the top of the file
+import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
 import autoTable from "jspdf-autotable";
-enum AssessmentStage {
+
+enum Stage {
   Upload = 0,
-  Categorization = 1,
-  DifficultySelection = 2,
+  Skills = 1,
+  Difficulty = 2,
   Test = 3,
   Results = 4,
-  PathRecommendation = 5
+  Path = 5,
 }
+
+const MAX_SKILLS = 8;
 
 interface Question {
-  id?: number;
+  id: number;
   question: string;
-  options: { [key: string]: string } | string[];
-  answer?: string;
-  code?: string | null;  
+  code: string | null;
+  options: Record<string, string>;
+  answer: string;
+  explanation: string;
+  topic: string;
+  skill: string;
 }
-
 
 interface TechStack {
   name: string;
@@ -58,653 +60,256 @@ interface TechStack {
 interface Resource {
   title: string;
   type: string;
+  provider: string;
   link: string;
   description: string;
+  focus_area: string;
+  estimated_hours: number;
+  free: boolean;
+  link_verified: boolean;
 }
 
-interface LearningPathResponse {
+interface LearningPath {
+  title: string;
+  summary: string;
+  strengths: string[];
+  focusAreas: { topic: string; why: string; priority: string }[];
   learningPath: Resource[];
+  weeklyPlan: { week: number; goal: string; activities: string[] }[];
+  capstoneProject: string;
 }
+
+const STAGES = [
+  { stage: Stage.Upload, label: "Upload", icon: <FileQuestion className="h-4 w-4" /> },
+  { stage: Stage.Skills, label: "Skills", icon: <Cpu className="h-4 w-4" /> },
+  { stage: Stage.Difficulty, label: "Level", icon: <AlertTriangle className="h-4 w-4" /> },
+  { stage: Stage.Test, label: "Test", icon: <BookOpen className="h-4 w-4" /> },
+  { stage: Stage.Results, label: "Results", icon: <Check className="h-4 w-4" /> },
+  { stage: Stage.Path, label: "Path", icon: <ArrowRight className="h-4 w-4" /> },
+];
+
 const SkillAssessment: React.FC = () => {
-  const [stage, setStage] = useState<AssessmentStage>(AssessmentStage.Upload);
-  const [isUploading, setIsUploading] = useState(false);
-  const [resumeUploaded, setResumeUploaded] = useState(false);
-  const [category, setCategory] = useState<string>("");
-  const [difficulty, setDifficulty] = useState<string>("");
+  const { toast } = useToast();
+  const [stage, setStage] = useState<Stage>(Stage.Upload);
+  const [extracting, setExtracting] = useState(false);
+  const [category, setCategory] = useState("");
+  const [primaryRole, setPrimaryRole] = useState("");
+  const [techStacks, setTechStacks] = useState<TechStack[]>([]);
+  const [newSkill, setNewSkill] = useState("");
+  const [difficulty, setDifficulty] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<
-    Record<number, string>
-  >({});
+  const [current, setCurrent] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [score, setScore] = useState<number | null>(null);
-  const [techStacks, setTechStacks] = useState<TechStack[]>([]);
-  const [learningPath, setLearningPath] = useState<Resource[] | null>(null);
+  const [path, setPath] = useState<LearningPath | null>(null);
 
-  const [isDownloading, setIsDownloading] = useState(false);
-  const { toast } = useToast();
+  const selectedSkills = techStacks.filter((t) => t.selected).map((t) => t.name);
 
-  // Update handleFileUpload function to ensure correct stage transition
-  const handleFileUpload = async (files: FileList, extractedInfo?: any) => {
-    setIsUploading(true);
-  
+  const fail = (title: string, err: unknown) => {
+    if (isInsufficientCredits(err)) return; // handled globally with a "Buy credits" toast
+    toast({ title, description: apiErrorMessage(err), variant: "destructive" });
+  };
+
+  const handleResume = async (files: File[]) => {
+    if (files.length === 0) return;
+    setExtracting(true);
     try {
-      if (extractedInfo && extractedInfo.techStack) {
-        const techStackList: TechStack[] = extractedInfo.techStack.map(
-          (tech: string) => ({
-            name: tech,
-            selected: true,
-          })
-        );
-  
-        setTechStacks(techStackList);
-        setCategory(extractedInfo.category || "Technology");
-  
-        toast({
-          title: "Resume Processed Successfully",
-          description:
-            "Your resume has been analyzed and tech stack extracted.",
-        });
-      } else {
-        setCategory("Technology");
-        setTechStacks([
-          { name: "JavaScript", selected: true },
-          { name: "React", selected: true },
-          { name: "Python", selected: true },
-          { name: "Machine Learning", selected: false },
-        ]);
-  
-        toast({
-          title: "Resume Uploaded Successfully",
-          description: "Your resume has been categorized as Technology.",
-        });
-      }
-  
-      setResumeUploaded(true);
-      setStage(AssessmentStage.Categorization);
-    } catch (error) {
-      console.error("Error processing resume:", error);
-      toast({
-        title: "Error",
-        description: "Failed to process your resume. Please try again.",
-        variant: "destructive",
-      });
+      const form = new FormData();
+      form.append("resume", files[0]);
+      const { data } = await api.post("/api/resume/skills", form);
+      const skills: string[] = data.techStack ?? [];
+      setTechStacks(skills.map((name, i) => ({ name, selected: i < 5 })));
+      setCategory(data.category);
+      setPrimaryRole(data.primaryRole);
+      setStage(Stage.Skills);
+      toast({ title: "Resume analysed", description: `Found ${skills.length} skills.` });
+    } catch (err) {
+      fail("Could not read your resume", err);
     } finally {
-      setIsUploading(false);
+      setExtracting(false);
     }
   };
 
-  const toggleTechStack = (index: number) => {
-    const updatedTechStacks = [...techStacks];
-    updatedTechStacks[index].selected = !updatedTechStacks[index].selected;
-    setTechStacks(updatedTechStacks);
+  const toggleSkill = (index: number) => {
+    setTechStacks((prev) => {
+      const next = prev.map((t, i) => (i === index ? { ...t, selected: !t.selected } : t));
+      if (next.filter((t) => t.selected).length > MAX_SKILLS) {
+        toast({ title: `Select up to ${MAX_SKILLS} skills`, variant: "destructive" });
+        return prev;
+      }
+      return next;
+    });
   };
 
-  const fetchQuestionsFromAPI = async () => {
-    try {
-      setIsLoading(true);
-
-      // Get selected tech stacks
-      const selectedTechs = techStacks
-        .filter((tech) => tech.selected)
-        .map((tech) => tech.name);
-
-      if (selectedTechs.length === 0) {
-        throw new Error("Please select at least one technology");
-      }
-
-      // Call the API with tech stack and difficulty parameters
-      const queryParams = new URLSearchParams({
-        difficulty: difficulty,
-        tech_stack: selectedTechs.join(","),
-      });
-
-      const response = await fetch(
-        `http://127.0.0.1:5000/generate_mcqs?${queryParams}`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-          signal: AbortSignal.timeout(30000) // 30 second timeout
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch questions: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Parse the response and format questions
-      let parsedQuestions: Question[] = [];
-
-      if (data && data.mcqs) {
-        try {
-          let mcqsArray = data.mcqs;
-          
-          if (typeof mcqsArray === 'string') {
-            // Remove markdown code block if present
-            let trimmed = mcqsArray.trim();
-            if (trimmed.startsWith('```json')) {
-              trimmed = trimmed.replace(/^```json/, '').replace(/```$/, '').trim();
-            } else if (trimmed.startsWith('```')) {
-              trimmed = trimmed.replace(/^```/, '').replace(/```$/, '').trim();
-            }
-            mcqsArray = JSON.parse(trimmed);
-          }
-
-          if (!Array.isArray(mcqsArray)) {
-            throw new Error('Received data is not in the expected format');
-          }
-
-          if (mcqsArray.length === 0) {
-            throw new Error('No questions received from the server');
-          }
-
-          parsedQuestions = mcqsArray.map((q, index) => ({
-            ...q,
-            id: index + 1,
-            options: q.options || {},
-            answer: q.answer || ''
-          }));
-
-          // Validate questions format
-          const invalidQuestions = parsedQuestions.filter(q => 
-            !q.question || 
-            !q.options || 
-            Object.keys(q.options).length === 0 || 
-            !q.answer
-          );
-
-          if (invalidQuestions.length > 0) {
-            throw new Error('Some questions are missing required fields');
-          }
-
-        } catch (parseError) {
-          console.error("Error parsing questions:", parseError);
-          throw new Error("Failed to process the questions from the server");
-        }
-      } else {
-        throw new Error("No questions data received from the server");
-      }
-
-      setQuestions(parsedQuestions);
-      setCurrentQuestionIndex(0); // Reset to first question
-      setSelectedAnswers({}); // Clear any previous answers
-      
-      return true; // Indicate successful fetch
-
-    } catch (error) {
-      console.error("Error fetching questions:", error);
-      
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load questions. Please try again.",
-        variant: "destructive",
-      });
-
-      // Use fallback questions only in development environment
-      if (process.env.NODE_ENV === 'development') {
-        const fallbackQuestions = [
-          {
-            id: 1,
-            question: "What is the primary purpose of a RESTful API?",
-            options: {
-              A: "To provide a graphical user interface",
-              B: "To enable communication between different systems over the internet",
-              C: "To store data in a SQL database",
-              D: "To manage server hardware resources",
-            },
-            answer: "B",
-          },
-          {
-            id: 2,
-            question: "Which of the following is NOT a JavaScript framework?",
-            options: {
-              A: "React",
-              B: "Angular",
-              C: "Vue",
-              D: "Flask",
-            },
-            answer: "D",
-          },
-        ];
-
-        setQuestions(fallbackQuestions);
-        return true; // Allow continuing with fallback questions in development
-      }
-
-      setQuestions([]);
-      return false; // Indicate fetch failure
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Update stage transitions in the component
-  const handleCategoryConfirm = () => {
-    const selectedTechs = techStacks.filter(tech => tech.selected);
-    if (selectedTechs.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one technology.",
-        variant: "destructive"
-      });
+  const addSkill = () => {
+    const name = newSkill.trim();
+    if (!name) return;
+    if (techStacks.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
+      setNewSkill("");
       return;
     }
-    setStage(AssessmentStage.DifficultySelection);
+    setTechStacks((prev) => [...prev, { name, selected: selectedSkills.length < MAX_SKILLS }]);
+    setNewSkill("");
   };
 
-  const handleDifficultySelection = async (difficultyLevel: string) => {
-    setDifficulty(difficultyLevel);
-    const success = await fetchQuestionsFromAPI();
-    if (success && questions.length > 0) {
-      setStage(AssessmentStage.Test);
-    } else {
-      toast({
-        title: "Error",
-        description: "Failed to load questions. Please try again.",
-        variant: "destructive",
+  const startTest = async () => {
+    setIsLoading(true);
+    try {
+      const { data } = await api.post<{ questions: Question[] }>("/api/assessment/questions", {
+        skills: selectedSkills,
+        difficulty,
+        count: 10,
       });
-    }
-  };
-
-  const handleAnswerSelection = (questionId: number, answer: string) => {
-    setSelectedAnswers({ ...selectedAnswers, [questionId]: answer });
-  };
-
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    } else {
-      // Complete test and calculate results
-      setIsLoading(true);
-      let correctAnswers = 0;
-      questions.forEach((question) => {
-        if (question.id !== undefined && selectedAnswers[question.id] === question.answer) {
-          correctAnswers++;
-        }
-      });
-      const scoreValue = Math.round((correctAnswers / questions.length) * 100);
-      setScore(scoreValue);
+      setQuestions(data.questions);
+      setCurrent(0);
+      setAnswers({});
+      setScore(null);
+      setPath(null);
+      setStage(Stage.Test);
+    } catch (err) {
+      fail("Could not generate your assessment", err);
+    } finally {
       setIsLoading(false);
-      setStage(AssessmentStage.Results);
     }
   };
 
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+  const finishTest = () => {
+    const correct = questions.filter((q) => answers[q.id] === q.answer).length;
+    setScore(Math.round((correct / questions.length) * 100));
+    setStage(Stage.Results);
+  };
+
+  const unanswered = questions.filter((q) => !answers[q.id]).length;
+
+  const generatePath = async () => {
+    setIsLoading(true);
+    try {
+      const { data } = await api.post<LearningPath>("/api/assessment/learning-path", {
+        skills: selectedSkills,
+        difficulty,
+        score,
+        results: questions.map((q) => ({
+          question: q.question,
+          topic: q.topic,
+          skill: q.skill,
+          user_answer: answers[q.id] ? `${answers[q.id]}: ${q.options[answers[q.id]]}` : "",
+          correct_answer: `${q.answer}: ${q.options[q.answer]}`,
+          is_correct: answers[q.id] === q.answer,
+        })),
+      });
+      setPath(data);
+      setStage(Stage.Path);
+    } catch (err) {
+      fail("Could not generate your learning path", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleRestart = () => {
-    setStage(AssessmentStage.Upload);
-    setResumeUploaded(false);
+  const restart = () => {
+    setStage(Stage.Upload);
+    setTechStacks([]);
     setCategory("");
+    setPrimaryRole("");
     setDifficulty("");
     setQuestions([]);
-    setCurrentQuestionIndex(0);
-    setSelectedAnswers({});
+    setAnswers({});
     setScore(null);
-    setTechStacks([]);
-    setLearningPath(null);
+    setPath(null);
   };
 
-  // Updated handlePathRecommendation function
-  const handlePathRecommendation = async () => {
-    if (!score || !difficulty || questions.length === 0) {
-      toast({
-        title: "Error",
-        description: "Missing assessment data. Please complete the assessment first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Prepare assessment data
-      const selectedTechs = techStacks
-        .filter((tech) => tech.selected)
-        .map((tech) => tech.name);
-
-      if (selectedTechs.length === 0) {
-        throw new Error("No technologies selected. Please select at least one technology.");
-      }
-
-      // Get question and user answers with correct/incorrect status
-      const questionAnswers = questions.map((question) => {
-        const questionId = question.id as number;
-        const userAnswer = selectedAnswers[questionId] || "";
-        const isCorrect = userAnswer === question.answer;
-
-        return {
-          question: question.question,
-          userAnswer,
-          correctAnswer: question.answer,
-          isCorrect,
-        };
-      });
-
-      // Validate that all questions have been answered
-      const unansweredQuestions = questionAnswers.filter(qa => !qa.userAnswer);
-      if (unansweredQuestions.length > 0) {
-        throw new Error("Please answer all questions before generating the learning path.");
-      }
-
-      // Send data to backend for path recommendation
-      const response = await fetch(
-        "http://127.0.0.1:5000/generate_learning_path",
-        {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({
-            score,
-            difficulty,
-            techStack: selectedTechs,
-            questionAnswers,
-          }),
-          signal: AbortSignal.timeout(30000) // 30 second timeout
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to get path recommendations: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Validate learning path data
-      if (!data || !data.learningPath || !Array.isArray(data.learningPath)) {
-        throw new Error("Invalid learning path data received from server");
-      }
-
-      // Validate each resource in the learning path
-      const validatedPath = data.learningPath.map((resource, index) => {
-        if (!resource.title || !resource.type || !resource.link || !resource.description) {
-          console.warn(`Invalid resource at index ${index}:`, resource);
-          return {
-            title: resource.title || "Resource " + (index + 1),
-            type: resource.type || "other",
-            link: resource.link || "#",
-            description: resource.description || "No description available."
-          };
-        }
-        return resource;
-      });
-
-      setLearningPath(validatedPath);
-      setStage(AssessmentStage.PathRecommendation);
-
-    } catch (error) {
-      console.error("Error generating learning path:", error);
-      
-      const errorMessage = error instanceof Error ? error.message : "Failed to generate learning path";
-      
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-
-      // Only use fallback in development environment
-      if (process.env.NODE_ENV === 'development') {
-        const fallbackPath = [
-          {
-            title: "Fundamentals Refresher",
-            type: "course",
-            link: "https://example.com/course1",
-            description: "Review core concepts to ensure a solid foundation.",
-          },
-          {
-            title: "Practice Projects",
-            type: "project",
-            link: "https://example.com/projects",
-            description: "Apply your knowledge with hands-on projects.",
-          },
-          {
-            title: "Advanced Topics",
-            type: "tutorial",
-            link: "https://example.com/advanced",
-            description: "Deepen your understanding with specialized topics.",
-          },
-        ];
-
-        setLearningPath(fallbackPath);
-        setStage(AssessmentStage.PathRecommendation);
-      }
-    } finally {
-      setIsLoading(false);
-    }
+  const skillBreakdown = () => {
+    const by: Record<string, { correct: number; total: number }> = {};
+    questions.forEach((q) => {
+      const key = q.skill || "General";
+      by[key] ??= { correct: 0, total: 0 };
+      by[key].total += 1;
+      if (answers[q.id] === q.answer) by[key].correct += 1;
+    });
+    return Object.entries(by);
   };
 
-  const downloadLearningPath = () => {
-    if (!learningPath || learningPath.length === 0) {
-      toast({
-        title: "Error",
-        description: "Learning path not available for download.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsDownloading(true);
-
-    try {
-      // Create a new PDF document
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 20;
-      let yPosition = 20;
-
-      // Add title and logo
-      doc.setFontSize(24);
-      doc.setFont("helvetica", "bold");
-      doc.text("Skill Assessment Report", pageWidth / 2, yPosition, {
-        align: "center",
-      });
-      yPosition += 25;
-
-      // Add assessment summary section
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("Assessment Summary", margin, yPosition);
-      yPosition += 10;
-
-      // Add assessment details in a structured format
-      doc.setFontSize(12);
+  const downloadReport = () => {
+    if (!path) return;
+    const doc = new jsPDF();
+    const width = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = 20;
+    const paragraph = (text: string, size = 11) => {
+      doc.setFontSize(size);
       doc.setFont("helvetica", "normal");
-      const summaryData = [
-        ["Score", `${score}%`],
-        ["Difficulty Level", difficulty],
-        ["Technologies", techStacks.filter(tech => tech.selected).map(tech => tech.name).join(", ")]
-      ];
-
-      autoTable(doc, {
-        startY: yPosition,
-        body: summaryData,
-        theme: 'plain',
-        styles: { fontSize: 12 },
-        columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 40 },
-          1: { cellWidth: 130 }
-        },
-      });
-
-      yPosition = (doc as any).lastAutoTable.finalY + 20;
-
-      // Add performance analysis section
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("Performance Analysis", margin, yPosition);
-      yPosition += 10;
-
-      // Add analysis text
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      const analysis = score >= 70 ? 
-        "You've demonstrated strong proficiency in the assessed skills. The recommended resources will help you further advance your expertise." :
-        "There's room for improvement in some areas. The recommended resources will help strengthen your foundation and build advanced skills.";
-
-      const splitAnalysis = doc.splitTextToSize(analysis, pageWidth - 2 * margin);
-      doc.text(splitAnalysis, margin, yPosition);
-      yPosition += splitAnalysis.length * 8 + 20;
-
-      // Add learning path section
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("Personalized Learning Path", margin, yPosition);
-      yPosition += 10;
-
-      // Add resources in a structured table
-      const resourcesData = learningPath.map((resource) => [
-        resource.title,
-        resource.type,
-        resource.description
-      ]);
-
-      autoTable(doc, {
-        startY: yPosition,
-        head: [["Resource", "Type", "Description"]],
-        body: resourcesData,
-        styles: { 
-          overflow: "linebreak", 
-          cellPadding: 5,
-          fontSize: 11
-        },
-        columnStyles: {
-          0: { cellWidth: 50, fontStyle: 'bold' },
-          1: { cellWidth: 30 },
-          2: { cellWidth: 110 }
-        },
-        headStyles: { 
-          fillColor: [41, 128, 185], 
-          textColor: 255,
-          fontSize: 12,
-          fontStyle: 'bold'
-        },
-      });
-
-      // Add resource links section
-      yPosition = (doc as any).lastAutoTable.finalY + 15;
+      const lines = doc.splitTextToSize(text, width - margin * 2);
+      if (y + lines.length * 6 > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(lines, margin, y);
+      y += lines.length * 6 + 4;
+    };
+    const heading = (text: string) => {
+      if (y > 265) {
+        doc.addPage();
+        y = 20;
+      }
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("Resource Links", margin, yPosition);
-      yPosition += 8;
+      doc.text(text, margin, y);
+      y += 8;
+    };
 
-      // Add links in a separate table
-      const linkData = learningPath.map((resource) => [
-        resource.title,
-        resource.link
-      ]);
-
-      autoTable(doc, {
-        startY: yPosition,
-        body: linkData,
-        theme: 'plain',
-        styles: { 
-          fontSize: 10,
-          textColor: [0, 0, 238]
-        },
-        columnStyles: {
-          0: { cellWidth: 50, fontStyle: 'bold' },
-          1: { cellWidth: 140 }
-        },
-      });
-
-      // Add footer
-      const finalY = (doc as any).lastAutoTable.finalY + 20;
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(
-        `Generated on ${new Date().toLocaleDateString()} | Skill Assessment Platform`,
-        pageWidth / 2,
-        finalY,
-        { align: "center" }
-      );
-
-      // Download the PDF
-      doc.save(`skill-assessment-report-${new Date().getTime()}.pdf`);
-
-      toast({
-        title: "Download Complete",
-        description: "Your assessment report has been downloaded successfully.",
-      });
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      toast({
-        title: "Download Failed",
-        description: "There was an error creating your PDF. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDownloading(false);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text(path.title, width / 2, y, { align: "center", maxWidth: width - margin * 2 });
+    y += 14;
+    autoTable(doc, {
+      startY: y,
+      theme: "plain",
+      body: [
+        ["Score", `${score}%`],
+        ["Level", difficulty],
+        ["Skills", selectedSkills.join(", ")],
+      ],
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 30 } },
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    heading("Summary");
+    paragraph(path.summary);
+    if (path.focusAreas.length) {
+      heading("Focus areas");
+      path.focusAreas.forEach((f) => paragraph(`• [${f.priority}] ${f.topic}: ${f.why}`));
     }
-  }; // Helper function to render options correctly
-  const renderOptions = (question: Question) => {
-    if (!question || !question.options) return null;
-
-    // Handle different option formats
-    const optionsArray = Array.isArray(question.options)
-      ? question.options.map((opt, idx) => ({
-          key: String.fromCharCode(65 + idx),
-          value: opt,
-        }))
-      : Object.entries(question.options).map(([key, value]) => ({
-          key,
-          value,
-        }));
-
-    return optionsArray.map((option, index) => (
-      <div
-        key={index}
-        className="flex items-start space-x-3 border p-3 rounded-md hover:bg-gray-50"
-      >
-        <RadioGroupItem value={option.key} id={`option-${index}`} />
-        <Label htmlFor={`option-${index}`}>{option.value}</Label>
-      </div>
-    ));
+    heading("Resources");
+    autoTable(doc, {
+      startY: y,
+      head: [["Resource", "Type", "Hours", "Link"]],
+      body: path.learningPath.map((r) => [`${r.title} (${r.provider})\n${r.description}`, r.type, String(r.estimated_hours), r.link]),
+      styles: { fontSize: 9, overflow: "linebreak", cellPadding: 3 },
+      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 22 }, 2: { cellWidth: 14 }, 3: { cellWidth: 64, textColor: [0, 0, 200] } },
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    heading("Weekly plan");
+    path.weeklyPlan.forEach((w) => paragraph(`Week ${w.week}: ${w.goal}\n  - ${w.activities.join("\n  - ")}`, 10));
+    heading("Capstone project");
+    paragraph(path.capstoneProject);
+    doc.save(`skill-sphere-learning-path-${Date.now()}.pdf`);
   };
 
-  // Helper function to determine resource icon based on type
-  const getResourceIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "course":
-        return <BookOpen className="h-5 w-5 text-blue-500" />;
-      case "project":
-        return <FileQuestion className="h-5 w-5 text-green-500" />;
-      case "tutorial":
-        return <Cpu className="h-5 w-5 text-purple-500" />;
-      default:
-        return <ArrowRight className="h-5 w-5 text-gray-500" />;
-    }
-  };
+  const q = questions[current];
 
   return (
     <Layout>
-      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full max-w-4xl mx-auto px-2 sm:px-6 py-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-center mb-6">Skill Assessment</h1>
 
-        <div className="mb-8 w-full">
+        <div className="mb-8">
           <Progress value={(stage + 1) * (100 / 6)} className="h-2" />
           <div className="flex justify-between items-center mt-4">
-            {[
-              { stage: AssessmentStage.Upload, label: "Upload", icon: <FileQuestion className="h-4 w-4" /> },
-              { stage: AssessmentStage.Categorization, label: "Category", icon: <Cpu className="h-4 w-4" /> },
-              { stage: AssessmentStage.DifficultySelection, label: "Difficulty", icon: <AlertTriangle className="h-4 w-4" /> },
-              { stage: AssessmentStage.Test, label: "Test", icon: <BookOpen className="h-4 w-4" /> },
-              { stage: AssessmentStage.Results, label: "Results", icon: <Check className="h-4 w-4" /> },
-              { stage: AssessmentStage.PathRecommendation, label: "Path", icon: <ArrowRight className="h-4 w-4" /> }
-            ].map((item, index) => (
-              <div key={index} className="relative flex flex-col items-center">
+            {STAGES.map((item) => (
+              <div key={item.label} className="flex flex-col items-center">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${stage >= item.stage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center ${stage >= item.stage ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"}`}
                 >
                   {item.icon}
                 </div>
@@ -714,301 +319,349 @@ const SkillAssessment: React.FC = () => {
           </div>
         </div>
 
-        {stage === AssessmentStage.Upload && (
-          <Card className="w-full">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-xl sm:text-2xl text-center">Upload Your Resume</CardTitle>
-              <CardDescription className="text-center">
-                We'll analyze your resume to identify your skills and suggest an appropriate assessment.
-              </CardDescription>
+        {stage === Stage.Upload && (
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl sm:text-2xl">Upload your resume</CardTitle>
+              <CardDescription>We will detect your tech stack and build an assessment around it.</CardDescription>
             </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <FileUpload
-                onFileUpload={handleFileUpload}
-                acceptedTypes=".pdf,.docx,.doc"
-                extractTechStack={true}
-              />
+            <CardContent className="space-y-4">
+              <FileUpload onFilesChange={handleResume} busy={extracting} busyLabel="Reading your resume..." />
+              <div className="flex justify-center">
+                <CostNote action="resume_skills" />
+              </div>
             </CardContent>
-            <CardFooter className="flex justify-center p-4 sm:p-6">
-              {isUploading ? (
-                <Button disabled className="w-full sm:w-auto">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
+            <CardFooter className="justify-center">
+              <Button variant="link" onClick={() => setStage(Stage.Skills)}>
+                No resume handy? Enter your skills manually
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+
+        {stage === Stage.Skills && (
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl sm:text-2xl">Choose skills to assess</CardTitle>
+              <CardDescription>Select up to {MAX_SKILLS} skills. Fewer skills means deeper questions.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {category && (
+                <Alert className="bg-blue-50">
+                  <AlertTitle className="text-blue-700 flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Profile detected
+                  </AlertTitle>
+                  <AlertDescription className="text-blue-600">
+                    {primaryRole ? (
+                      <>
+                        Looks like a <strong>{primaryRole}</strong> profile ({category}).
+                      </>
+                    ) : (
+                      <>
+                        Primary category: <strong>{category}</strong>.
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add a skill, e.g. TypeScript"
+                  value={newSkill}
+                  onChange={(e) => setNewSkill(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addSkill()}
+                  maxLength={60}
+                />
+                <Button variant="outline" onClick={addSkill}>
+                  <Plus className="h-4 w-4 mr-1" /> Add
                 </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {techStacks.map((tech, index) => (
+                  <label
+                    key={tech.name}
+                    htmlFor={`tech-${index}`}
+                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                  >
+                    <Checkbox id={`tech-${index}`} checked={tech.selected} onCheckedChange={() => toggleSkill(index)} />
+                    <Cpu className="h-4 w-4 text-gray-500" />
+                    <span>{tech.name}</span>
+                  </label>
+                ))}
+              </div>
+              {techStacks.length === 0 && <p className="text-center text-sm text-gray-500">Add at least one skill to continue.</p>}
+            </CardContent>
+            <CardFooter className="justify-between">
+              <Button variant="outline" onClick={restart}>
+                Back
+              </Button>
+              <Button onClick={() => setStage(Stage.Difficulty)} disabled={selectedSkills.length === 0}>
+                Continue with {selectedSkills.length} skill{selectedSkills.length === 1 ? "" : "s"}
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+
+        {stage === Stage.Difficulty && (
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl sm:text-2xl">Select difficulty</CardTitle>
+              <CardDescription>10 questions on {selectedSkills.join(", ")}.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup className="grid grid-cols-1 sm:grid-cols-3 gap-4" value={difficulty} onValueChange={setDifficulty}>
+                {[
+                  ["beginner", "Beginner", "0-2 years: core concepts"],
+                  ["intermediate", "Intermediate", "2-5 years: trade-offs & practice"],
+                  ["advanced", "Advanced", "5+ years: internals & architecture"],
+                ].map(([value, label, hint]) => (
+                  <label key={value} htmlFor={value} className="flex items-start space-x-2 border rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
+                    <RadioGroupItem value={value} id={value} className="mt-1" />
+                    <span>
+                      <span className="font-medium block">{label}</span>
+                      <span className="text-xs text-gray-500">{hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </CardContent>
+            <CardFooter className="flex flex-col sm:flex-row justify-between gap-3">
+              <Button variant="outline" onClick={() => setStage(Stage.Skills)} disabled={isLoading}>
+                Back
+              </Button>
+              <div className="flex items-center gap-3">
+                <CostNote action="assessment_questions" />
+                <Button onClick={startTest} disabled={!difficulty || isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Writing your questions...
+                    </>
+                  ) : (
+                    "Start assessment"
+                  )}
+                </Button>
+              </div>
+            </CardFooter>
+          </Card>
+        )}
+
+        {stage === Stage.Test && q && (
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-lg sm:text-xl">
+                  Question {current + 1} of {questions.length}
+                </CardTitle>
+                <Badge variant="secondary">{q.skill}</Badge>
+              </div>
+              <Progress value={((current + 1) / questions.length) * 100} className="h-1" />
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="text-lg font-medium whitespace-pre-wrap">{q.question}</div>
+              {q.code && (
+                <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                  <code>{q.code}</code>
+                </pre>
+              )}
+              <RadioGroup
+                value={answers[q.id] || ""}
+                onValueChange={(value) => setAnswers({ ...answers, [q.id]: value })}
+                className="space-y-3"
+              >
+                {Object.entries(q.options).map(([key, value]) => (
+                  <label
+                    key={key}
+                    htmlFor={`q${q.id}-${key}`}
+                    className="flex items-start space-x-3 border p-3 rounded-md hover:bg-gray-50 cursor-pointer"
+                  >
+                    <RadioGroupItem value={key} id={`q${q.id}-${key}`} className="mt-0.5" />
+                    <span>
+                      <strong className="mr-2">{key}.</strong>
+                      {value}
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </CardContent>
+            <CardFooter className="flex flex-col sm:flex-row justify-between gap-4">
+              <Button variant="outline" onClick={() => setCurrent(current - 1)} disabled={current === 0}>
+                Previous
+              </Button>
+              {current < questions.length - 1 ? (
+                <Button onClick={() => setCurrent(current + 1)}>Next</Button>
               ) : (
-                <Button
-                  onClick={() => setStage(AssessmentStage.Categorization)}
-                  disabled={!resumeUploaded && stage === AssessmentStage.Upload}
-                  className="w-full sm:w-auto"
-                >
-                  {resumeUploaded ? "Continue" : "Please Upload Your Resume"}
-                </Button>
+                <Button onClick={finishTest}>{unanswered > 0 ? `Finish (${unanswered} unanswered)` : "Finish"}</Button>
               )}
             </CardFooter>
           </Card>
         )}
 
-        {stage === AssessmentStage.Categorization && (
-          <Card className="w-full">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-xl sm:text-2xl text-center">Resume Analysis Complete</CardTitle>
-              <CardDescription className="text-center">
-                Based on your resume, we've identified your primary skill category and tech stack.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 space-y-6">
-              <Alert className="bg-blue-50">
-                <AlertTitle className="text-blue-700 flex items-center justify-center sm:justify-start">
-                  <Check className="h-4 w-4 mr-2" />
-                  Skill Category Identified
-                </AlertTitle>
-                <AlertDescription className="text-blue-600 text-center sm:text-left">
-                  Your resume has been analyzed and your primary skill category is <strong>{category}</strong>.
-                </AlertDescription>
-              </Alert>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-center sm:text-left">
-                  Detected Tech Stack
-                </h3>
-                <p className="text-gray-700 text-center sm:text-left">
-                  We've identified the following technologies in your resume. Please confirm or adjust:
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {techStacks.map((tech, index) => (
-                    <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
-                      <Checkbox
-                        id={`tech-${index}`}
-                        checked={tech.selected}
-                        onCheckedChange={() => toggleTechStack(index)}
-                      />
-                      <Label htmlFor={`tech-${index}`} className="flex items-center cursor-pointer">
-                        <Cpu className="h-4 w-4 mr-2 text-gray-500" />
-                        {tech.name}
-                      </Label>
+        {stage === Stage.Results && score !== null && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="text-center">
+                <CardTitle className="text-xl sm:text-2xl">Assessment results</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="text-center">
+                  <div className={`text-5xl sm:text-6xl font-bold ${score >= 70 ? "text-green-600" : score >= 40 ? "text-amber-500" : "text-red-500"}`}>
+                    {score}%
+                  </div>
+                  <p className="text-gray-600 mt-2">
+                    {questions.filter((x) => answers[x.id] === x.answer).length} of {questions.length} correct at{" "}
+                    {difficulty} level
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {skillBreakdown().map(([skill, s]) => (
+                    <div key={skill}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>{skill}</span>
+                        <span>
+                          {s.correct}/{s.total}
+                        </span>
+                      </div>
+                      <Progress value={(s.correct / s.total) * 100} className="h-2" />
                     </div>
                   ))}
                 </div>
-              </div>
-            </CardContent>
-            <CardFooter className="justify-between">
-              <Button
-                onClick={() => setStage(AssessmentStage.DifficultySelection)}
-              >
-                Continue
-              </Button>
-            </CardFooter>
-          </Card>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Button onClick={restart} variant="outline">
+                    Take another assessment
+                  </Button>
+                  <Button onClick={generatePath} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Target className="mr-2 h-4 w-4" />}
+                    {isLoading ? "Building your plan..." : "Get my learning path"}
+                  </Button>
+                </div>
+                <div className="text-right">
+                  <CostNote action="learning_path" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Review your answers</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {questions.map((item, i) => {
+                  const ok = answers[item.id] === item.answer;
+                  return (
+                    <div key={item.id} className={`border-l-4 pl-4 py-2 ${ok ? "border-green-500" : "border-red-500"}`}>
+                      <p className="font-medium flex items-start gap-2">
+                        {ok ? <Check className="h-4 w-4 text-green-600 mt-1 shrink-0" /> : <X className="h-4 w-4 text-red-600 mt-1 shrink-0" />}
+                        <span>
+                          {i + 1}. {item.question}
+                        </span>
+                      </p>
+                      {!ok && (
+                        <p className="text-sm text-red-700 mt-1">
+                          Your answer: {answers[item.id] ? `${answers[item.id]}. ${item.options[answers[item.id]]}` : "not answered"}
+                        </p>
+                      )}
+                      <p className="text-sm text-green-700">
+                        Correct: {item.answer}. {item.options[item.answer]}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">{item.explanation}</p>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
-        {stage === AssessmentStage.DifficultySelection && (
-          <Card className="w-full">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-xl sm:text-2xl text-center">Select Difficulty Level</CardTitle>
-              <CardDescription className="text-center">
-                Choose the difficulty level for your assessment.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <RadioGroup
-                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-                defaultValue="beginner"
-                value={difficulty}
-                onValueChange={(value) => setDifficulty(value)}
-              >
-                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
-                  <RadioGroupItem value="beginner" id="beginner" />
-                  <Label htmlFor="beginner">Beginner</Label>
-                </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
-                  <RadioGroupItem value="intermediate" id="intermediate" />
-                  <Label htmlFor="intermediate">Intermediate</Label>
-                </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
-                  <RadioGroupItem value="advanced" id="advanced" />
-                  <Label htmlFor="advanced">Advanced</Label>
-                </div>
-              </RadioGroup>
-            </CardContent>
-            <CardFooter className="flex justify-end p-4 sm:p-6">
-              <Button
-                onClick={() => handleDifficultySelection(difficulty)}
-                disabled={!difficulty}
-                className="w-full sm:w-auto"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading Questions...
-                  </>
-                ) : (
-                  'Continue'
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-
-        {stage === AssessmentStage.Test && (
-          <Card className="w-full">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-xl sm:text-2xl text-center">
-                Question {currentQuestionIndex + 1} of {questions.length}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 space-y-6">
-              {questions[currentQuestionIndex] && (
-                <div className="space-y-6">
-                  <div className="text-lg font-medium text-center sm:text-left">
-                    {questions[currentQuestionIndex].question}
-                  </div>
-                  {questions[currentQuestionIndex].code && (
-                    <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                      {questions[currentQuestionIndex].code}
-                    </pre>
-                  )}
-                  <RadioGroup
-                    value={selectedAnswers[questions[currentQuestionIndex].id || 0] || ""}
-                    onValueChange={(value) =>
-                      handleAnswerSelection(
-                        questions[currentQuestionIndex].id || 0,
-                        value
-                      )
-                    }
-                    className="space-y-3"
-                  >
-                    {renderOptions(questions[currentQuestionIndex])}
-                  </RadioGroup>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex flex-col sm:flex-row justify-between gap-4 p-4 sm:p-6">
-              <Button
-                onClick={handlePreviousQuestion}
-                disabled={currentQuestionIndex === 0}
-                variant="outline"
-                className="w-full sm:w-auto order-2 sm:order-1"
-              >
-                Previous
-              </Button>
-              <Button
-                onClick={handleNextQuestion}
-                className="w-full sm:w-auto order-1 sm:order-2"
-              >
-                {currentQuestionIndex === questions.length - 1 ? "Finish" : "Next"}
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-
-        {stage === AssessmentStage.Results && (
-          <Card className="w-full">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-xl sm:text-2xl text-center">Assessment Results</CardTitle>
-              <CardDescription className="text-center">
-                Here's how you performed in your assessment.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 space-y-6">
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div className="text-4xl sm:text-6xl font-bold text-blue-600">
-                  {score}%
-                </div>
-                <p className="text-gray-600 text-center">
-                  You've completed the {difficulty} level assessment
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Button
-                  onClick={handleRestart}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Take Another Assessment
-                </Button>
-                <Button
-                  onClick={handlePathRecommendation}
-                  className="w-full"
-                >
-                  Get Learning Path
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {stage === AssessmentStage.PathRecommendation && (
-          <Card className="w-full">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-xl sm:text-2xl text-center">Your Learning Path</CardTitle>
-              <CardDescription className="text-center">
-                Based on your assessment results, here's your personalized learning path.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 space-y-6">
-              {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
-                  <p className="text-gray-600">Generating your learning path...</p>
-                </div>
-              ) : learningPath ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {learningPath.map((resource, index) => (
-                      <Card key={index} className="flex flex-col h-full">
-                        <CardHeader>
-                          <div className="flex items-center space-x-2">
-                            {getResourceIcon(resource.type)}
-                            <CardTitle className="text-lg">{resource.title}</CardTitle>
-                          </div>
-                          <Badge variant="secondary" className="w-fit">
-                            {resource.type}
-                          </Badge>
-                        </CardHeader>
-                        <CardContent className="flex-grow">
-                          <p className="text-gray-600">{resource.description}</p>
-                        </CardContent>
-                        <CardFooter>
-                          <a
-                            href={resource.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline w-full text-center"
-                          >
-                            View Resource
-                          </a>
-                        </CardFooter>
-                      </Card>
+        {stage === Stage.Path && path && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl sm:text-2xl">{path.title}</CardTitle>
+                <CardDescription className="text-base text-gray-700">{path.summary}</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold mb-2">Focus areas</h3>
+                  <ul className="space-y-2">
+                    {path.focusAreas.map((f) => (
+                      <li key={f.topic} className="text-sm">
+                        <Badge variant={f.priority === "high" ? "destructive" : "secondary"} className="mr-2">
+                          {f.priority}
+                        </Badge>
+                        <strong>{f.topic}</strong>: {f.why}
+                      </li>
                     ))}
-                  </div>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Strengths</h3>
+                  <ul className="list-disc pl-5 text-sm space-y-1">
+                    {path.strengths.map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
 
-                  <div className="flex flex-col sm:flex-row justify-center gap-4">
-                    <Button
-                      onClick={downloadLearningPath}
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      disabled={isDownloading}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      {isDownloading ? "Downloading..." : "Download Path"}
-                    </Button>
-                    <Button
-                      onClick={handleRestart}
-                      className="w-full sm:w-auto"
-                    >
-                      Start New Assessment
-                    </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {path.learningPath.map((r, i) => (
+                <Card key={i} className="flex flex-col">
+                  <CardHeader className="pb-2">
+                    <div className="flex flex-wrap gap-2 mb-1">
+                      <Badge variant="secondary">{r.type}</Badge>
+                      <Badge variant="outline">{r.free ? "Free" : "Paid"}</Badge>
+                      <Badge variant="outline">~{r.estimated_hours}h</Badge>
+                    </div>
+                    <CardTitle className="text-base">{r.title}</CardTitle>
+                    <CardDescription>{r.provider}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-grow text-sm text-gray-600">{r.description}</CardContent>
+                  <CardFooter>
+                    <a href={r.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm flex items-center gap-1">
+                      {r.link_verified ? <ArrowRight className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                      {r.link_verified ? "Open resource" : "Find this resource"}
+                    </a>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Your week-by-week plan</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {path.weeklyPlan.map((w) => (
+                  <div key={w.week}>
+                    <h4 className="font-medium">
+                      Week {w.week}: {w.goal}
+                    </h4>
+                    <ul className="list-disc pl-5 text-sm text-gray-600">
+                      {w.activities.map((a) => (
+                        <li key={a}>{a}</li>
+                      ))}
+                    </ul>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-600">No learning path available.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                ))}
+                <Alert>
+                  <Target className="h-4 w-4" />
+                  <AlertTitle>Capstone project</AlertTitle>
+                  <AlertDescription>{path.capstoneProject}</AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <Button onClick={downloadReport} variant="outline">
+                <Download className="mr-2 h-4 w-4" /> Download PDF
+              </Button>
+              <Button onClick={() => setStage(Stage.Results)} variant="outline">
+                Back to results
+              </Button>
+              <Button onClick={restart}>Start new assessment</Button>
+            </div>
+          </div>
         )}
       </div>
     </Layout>

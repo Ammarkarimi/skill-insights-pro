@@ -1,48 +1,79 @@
-
+import React, { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import SkillAssessment from "./pages/SkillAssessment";
-import JobMarket from "./pages/JobMarket";
-import ResumeTips from "./pages/ResumeTips";
-import PathRecommendation from "./pages/PathRecommendation";
-import NetworkAnalysis from "./pages/NetworkAnalysis";
-import JobAssessment from "./pages/JobAssessment";
-import NotFound from "./pages/NotFound";
-import Chatbot from "./pages/Chatbot";
-import PracticeInterview from "./pages/PracticeInterview";
+import { Loader2 } from "lucide-react";
+import { AuthProvider } from "@/context/AuthContext";
+import RequireAuth from "@/components/RequireAuth";
+import CreditsWatcher from "@/components/CreditsWatcher";
 import Landing from "./pages/Landing";
-import LinkedInCallback from "./pages/LinkedInCallback";
+import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const Index = lazy(() => import("./pages/Index"));
+const SkillAssessment = lazy(() => import("./pages/SkillAssessment"));
+const JobMarket = lazy(() => import("./pages/JobMarket"));
+const ResumeTips = lazy(() => import("./pages/ResumeTips"));
+const PathRecommendation = lazy(() => import("./pages/PathRecommendation"));
+const JobAssessment = lazy(() => import("./pages/JobAssessment"));
+const Chatbot = lazy(() => import("./pages/Chatbot"));
+const PracticeInterview = lazy(() => import("./pages/PracticeInterview"));
+const Billing = lazy(() => import("./pages/Billing"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
+const Terms = lazy(() => import("./pages/Legal").then((m) => ({ default: m.Terms })));
+const Privacy = lazy(() => import("./pages/Legal").then((m) => ({ default: m.Privacy })));
+const Refunds = lazy(() => import("./pages/Legal").then((m) => ({ default: m.Refunds })));
 
+const Fallback = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
+
+const protectedRoutes: [string, React.ComponentType][] = [
+  ["/home", Index],
+  ["/skill-assessment", SkillAssessment],
+  ["/job-market", JobMarket],
+  ["/resume-tips", ResumeTips],
+  ["/path-recommendation", PathRecommendation],
+  ["/job-assessment", JobAssessment],
+  ["/chatbot", Chatbot],
+  ["/practice-interview", PracticeInterview],
+  ["/billing", Billing],
+];
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <AuthProvider>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/home" element={<Index />} />
-          <Route path="/skill-assessment" element={<SkillAssessment />} />
-          <Route path="/job-market" element={<JobMarket />} />
-          <Route path="/resume-tips" element={<ResumeTips />} />
-          <Route path="/path-recommendation" element={<PathRecommendation />} />
-          <Route path="/network-analysis" element={<NetworkAnalysis />} />
-          <Route path="/job-assessment" element={<JobAssessment />} />
-          <Route path="/chatbot" element={<Chatbot />} />
-          <Route path="/practice-interview" element={<PracticeInterview />} />
-          <Route path="/linkedin-callback" element={<LinkedInCallback />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <CreditsWatcher />
+        <Suspense fallback={<Fallback />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<AuthPage mode="login" />} />
+            <Route path="/register" element={<AuthPage mode="register" />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/refunds" element={<Refunds />} />
+            {protectedRoutes.map(([path, Page]) => (
+              <Route
+                key={path}
+                path={path}
+                element={
+                  <RequireAuth>
+                    <Page />
+                  </RequireAuth>
+                }
+              />
+            ))}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
-  </QueryClientProvider>
+  </AuthProvider>
 );
 
 export default App;

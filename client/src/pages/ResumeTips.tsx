@@ -1,152 +1,175 @@
-import React, { useState } from 'react';
-import Layout from '@/components/Layout';
+import React, { useState } from "react";
+import Layout from "@/components/Layout";
+import FileUpload from "@/components/FileUpload";
+import CostNote from "@/components/CostNote";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { CheckSquare, AlertTriangle, FileText, BookOpen, MessageSquare, Upload, Highlighter } from 'lucide-react';
+import { CheckSquare, AlertTriangle, FileText, BookOpen, MessageSquare, Highlighter, Loader2, Download, Copy, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
+import { jsPDF } from "jspdf";
+
+interface Suggestion {
+  startIndex: number;
+  endIndex: number;
+  original: string;
+  suggestion: string;
+  reason: string;
+  category: string;
+  severity: "high" | "medium" | "low";
+}
+
+interface Analysis {
+  text: string;
+  overall_score: number;
+  headline: string;
+  summary: string;
+  strengths: string[];
+  scores: Record<string, { score: number; justification: string }>;
+  missing_sections: string[];
+  keywords_to_add: string[];
+  suggestions: Suggestion[];
+}
+
+const SCORE_LABELS: Record<string, string> = {
+  word_choice: "Word choice",
+  grammar: "Grammar & spelling",
+  structure: "Structure & formatting",
+  content_relevance: "Content relevance",
+  ats_compatibility: "ATS compatibility",
+};
+
+const SEVERITY_STYLE: Record<string, string> = {
+  high: "bg-red-100 hover:bg-red-200 border-b-2 border-red-400",
+  medium: "bg-amber-100 hover:bg-amber-200 border-b-2 border-amber-400",
+  low: "bg-blue-50 hover:bg-blue-100 border-b-2 border-blue-300",
+};
+
+const scoreColor = (s: number) => (s >= 75 ? "text-green-600" : s >= 55 ? "text-amber-500" : "text-red-500");
 
 const ResumeTips: React.FC = () => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [analysis, setAnalysis] = useState<null | {
-    text: string;
-    suggestions: Array<{
-      startIndex: number;
-      endIndex: number;
-      original: string;
-      suggestion: string;
-      reason: string;
-    }>
-  }>(null);
-  const [error, setError] = useState("");
+  const { toast } = useToast();
+  const [file, setFile] = useState<File | null>(null);
+  const [targetRole, setTargetRole] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    if (file) {
-      if (file.type === 'application/pdf' || file.type.includes('document')) {
-        setSelectedFile(file);
-        setError("");
-      } else {
-        setError("Please upload a PDF or Word document (.doc, .docx)");
-      }
-    }
-  };
-
-  const handleAnalyzeResume = async () => {
-    if (!selectedFile) return;
-    
-    setIsUploading(true);
-    setUploadProgress(0);
-    
-    // Simulate progress for better UX
-    const progressInterval = setInterval(() => {
-      setUploadProgress(prev => {
-        const newProgress = prev + Math.random() * 15;
-        return newProgress >= 90 ? 90 : newProgress;
-      });
-    }, 300);
-    
+  const handleAnalyze = async () => {
+    if (!file) return;
+    setIsAnalyzing(true);
     try {
-      // Create FormData for the file upload
-      const formData = new FormData();
-      formData.append('resume', selectedFile);
-      
-      // Call your backend API endpoint
-      const response = await fetch('http://localhost:5000/api/analyze-resume', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      clearInterval(progressInterval);
-      
-      if (!response.ok) {
-        throw new Error('Resume analysis failed');
-      }
-      
-      const data = await response.json();
-      setUploadProgress(100);
-      
-      // Handle the analysis data
-      setTimeout(() => {
-        setAnalysis(data);
-        setIsUploading(false);
-      }, 500);
-      
+      const form = new FormData();
+      form.append("resume", file);
+      form.append("target_role", targetRole);
+      form.append("job_description", jobDescription);
+      const { data } = await api.post<Analysis>("/api/resume/analyze", form);
+      setAnalysis(data);
     } catch (err) {
-      clearInterval(progressInterval);
-      setError("Error analyzing resume. Please try again.");
-      setIsUploading(false);
+      if (!isInsufficientCredits(err)) {
+        toast({ title: "Analysis failed", description: apiErrorMessage(err), variant: "destructive" });
+      }
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
-  const ResumeText = () => {
-    if (!analysis) return null;
-    
-    // Create a component that highlights the issues in the text
-    const text = analysis.text;
-    const segments = [];
-    let lastIndex = 0;
-    
-    // Sort suggestions by startIndex to process them in order
-    const sortedSuggestions = [...analysis.suggestions].sort((a, b) => a.startIndex - b.startIndex);
-    
-    sortedSuggestions.forEach((suggestion, index) => {
-      // Add text before the current suggestion
-      if (suggestion.startIndex > lastIndex) {
-        segments.push(
-          <span key={`text-${index}`}>
-            {text.substring(lastIndex, suggestion.startIndex)}
-          </span>
-        );
-      }
-      
-      // Add the highlighted suggestion
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => toast({ title: "Copied to clipboard" }));
+  };
+
+  const scrollTo = (index: number) =>
+    document.getElementById(`suggestion-${index}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const HighlightedText = ({ data }: { data: Analysis }) => {
+    const segments: React.ReactNode[] = [];
+    let last = 0;
+    data.suggestions.forEach((s, i) => {
+      if (s.startIndex < 0 || s.startIndex < last) return;
+      if (s.startIndex > last) segments.push(<span key={`t${i}`}>{data.text.slice(last, s.startIndex)}</span>);
       segments.push(
-        <span 
-          key={`highlight-${index}`}
-          className="bg-yellow-100 hover:bg-yellow-200 cursor-pointer relative group"
-          title={suggestion.reason}
+        <mark
+          key={`h${i}`}
+          className={`cursor-pointer rounded-sm px-0.5 text-inherit ${SEVERITY_STYLE[s.severity] ?? SEVERITY_STYLE.low}`}
+          title={`${s.reason}\n\nSuggested: ${s.suggestion}`}
+          onClick={() => scrollTo(i)}
         >
-          {text.substring(suggestion.startIndex, suggestion.endIndex)}
-          <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-white border border-gray-200 shadow-lg rounded-md p-3 w-64 z-10">
-            <p className="font-medium text-red-600 line-through mb-1">{suggestion.original}</p>
-            <p className="font-medium text-green-600 mb-1">{suggestion.suggestion}</p>
-            <p className="text-xs text-gray-600">{suggestion.reason}</p>
-          </div>
-        </span>
+          {data.text.slice(s.startIndex, s.endIndex)}
+          <sup className="ml-0.5 font-bold text-[10px]">{i + 1}</sup>
+        </mark>,
       );
-      
-      lastIndex = suggestion.endIndex;
+      last = s.endIndex;
     });
-    
-    // Add any remaining text
-    if (lastIndex < text.length) {
-      segments.push(
-        <span key="text-end">
-          {text.substring(lastIndex)}
-        </span>
-      );
+    if (last < data.text.length) segments.push(<span key="end">{data.text.slice(last)}</span>);
+    return <div className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed">{segments}</div>;
+  };
+
+  const downloadReport = () => {
+    if (!analysis) return;
+    const doc = new jsPDF();
+    const width = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = 20;
+    const write = (text: string, size = 10, bold = false) => {
+      doc.setFontSize(size);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      const lines = doc.splitTextToSize(text, width - margin * 2);
+      for (const line of lines) {
+        if (y > 280) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(line, margin, y);
+        y += size * 0.5;
+      }
+      y += 2;
+    };
+    write("Resume Analysis Report", 18, true);
+    write(`Overall score: ${analysis.overall_score}/100: ${analysis.headline}`, 12, true);
+    write(analysis.summary);
+    y += 2;
+    write("Category scores", 13, true);
+    Object.entries(analysis.scores).forEach(([k, v]) => write(`${SCORE_LABELS[k] ?? k}: ${v.score}/100. ${v.justification}`));
+    write("Strengths", 13, true);
+    analysis.strengths.forEach((s) => write(`• ${s}`));
+    if (analysis.keywords_to_add.length) {
+      write("Keywords to add", 13, true);
+      write(analysis.keywords_to_add.join(", "));
     }
-    
-    return <div className="whitespace-pre-wrap">{segments}</div>;
+    if (analysis.missing_sections.length) {
+      write("Missing sections", 13, true);
+      write(analysis.missing_sections.join(", "));
+    }
+    write("Suggested edits", 13, true);
+    analysis.suggestions.forEach((s, i) => {
+      write(`${i + 1}. [${s.severity.toUpperCase()} · ${s.category}]`, 10, true);
+      write(`Original: ${s.original}`);
+      write(`Suggested: ${s.suggestion}`);
+      write(`Why: ${s.reason}`);
+      y += 2;
+    });
+    doc.save(`resume-analysis-${Date.now()}.pdf`);
   };
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
-        <h1 className="page-header">Resume & Interview Tips</h1>
-        
-        <Tabs defaultValue="resume" className="mb-6">
+      <div className="max-w-5xl mx-auto">
+        <h1 className="page-header">Resume Analyzer & Tips</h1>
+
+        <Tabs defaultValue="analyzer" className="mb-6">
           <TabsList className="w-full mb-6">
-            <TabsTrigger value="resume" className="flex-1">Resume Tips</TabsTrigger>
-            <TabsTrigger value="interview" className="flex-1">Interview Preparation</TabsTrigger>
             <TabsTrigger value="analyzer" className="flex-1">Resume Analyzer</TabsTrigger>
+            <TabsTrigger value="resume" className="flex-1">Resume Tips</TabsTrigger>
+            <TabsTrigger value="interview" className="flex-1">Interview Prep</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="resume">
             <div className="space-y-8">
               <Card>
@@ -485,157 +508,180 @@ const ResumeTips: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="analyzer">
-            <div className="space-y-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Highlighter className="h-5 w-5 text-primary" />
-                    Resume Analyzer
-                  </CardTitle>
-                  <CardDescription>
-                    Upload your resume for personalized feedback and suggestions to improve your chances of getting interviews.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                      <div className="space-y-3">
-                        <Upload className="h-10 w-10 text-gray-400 mx-auto" />
-                        <h3 className="text-lg font-medium">Upload your resume</h3>
-                        <p className="text-sm text-gray-500">
-                          PDF or Word documents (.doc, .docx) accepted
-                        </p>
-                        
-                        <div className="flex justify-center mt-4">
-                          <label className="cursor-pointer">
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                              onChange={handleFileChange}
-                            />
-                            <div className="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-md transition">
-                              Select File
-                            </div>
-                          </label>
-                        </div>
-                        
-                        {selectedFile && (
-                          <div className="text-sm mt-2">
-                            Selected: <span className="font-medium">{selectedFile.name}</span>
-                          </div>
-                        )}
-                        
-                        {error && (
-                          <Alert variant="destructive" className="mt-4">
-                            <AlertDescription>{error}</AlertDescription>
-                          </Alert>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {selectedFile && !isUploading && !analysis && (
-                      <div className="flex justify-center">
-                        <Button 
-                          onClick={handleAnalyzeResume}
-                          className="bg-primary hover:bg-primary/90 text-white"
-                        >
-                          Analyze Resume
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {isUploading && (
-                      <div className="space-y-3">
-                        <Progress value={uploadProgress} className="h-2" />
-                        <div className="text-center text-sm text-gray-600">
-                          {uploadProgress < 100 ? "Analyzing your resume..." : "Analysis complete!"}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {analysis && (
+            <div className="space-y-6">
+              {!analysis && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
-                      Analysis Results
+                      <Highlighter className="h-5 w-5 text-primary" />
+                      Get a recruiter-grade review of your resume
                     </CardTitle>
                     <CardDescription>
-                      We found {analysis.suggestions.length} suggestions to improve your resume. Hover over the highlighted text for detailed feedback.
+                      Scores across five categories, line-by-line rewrites and the keywords you are missing. Add a
+                      target role or job description for tailored feedback.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h3 className="font-medium text-gray-800 mb-4">Your Resume Content</h3>
-                      <div className="text-gray-700 text-sm leading-relaxed">
-                        <ResumeText />
+                  <CardContent className="space-y-4">
+                    <FileUpload onFilesChange={(files) => setFile(files[0] ?? null)} busy={isAnalyzing} busyLabel="Analysing your resume. This takes about 30 seconds..." />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="target-role">Target role (optional)</Label>
+                        <Input
+                          id="target-role"
+                          placeholder="e.g. Senior Frontend Engineer"
+                          value={targetRole}
+                          maxLength={120}
+                          onChange={(e) => setTargetRole(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2 md:row-span-2">
+                        <Label htmlFor="jd">Job description (optional)</Label>
+                        <Textarea
+                          id="jd"
+                          placeholder="Paste a job posting to tailor the feedback"
+                          className="min-h-[96px]"
+                          value={jobDescription}
+                          maxLength={12000}
+                          onChange={(e) => setJobDescription(e.target.value)}
+                        />
                       </div>
                     </div>
-                    
-                    <div>
-                      <h3 className="font-medium text-gray-800 mb-3">Summary of Suggestions</h3>
-                      <ul className="space-y-3">
-                        {analysis.suggestions.map((suggestion, index) => (
-                          <li key={index} className="bg-gray-50 p-3 rounded-md border-l-4 border-amber-500">
-                            <p className="font-medium text-gray-800 mb-1">
-                              Change: <span className="text-red-600">{suggestion.original}</span> to <span className="text-green-600">{suggestion.suggestion}</span>
-                            </p>
-                            <p className="text-sm text-gray-600">{suggestion.reason}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
                   </CardContent>
-                  <CardFooter>
-                    <div className="flex flex-col sm:flex-row sm:justify-between w-full gap-4">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setAnalysis(null);
-                          setSelectedFile(null);
-                        }}
-                      >
-                        Upload a Different Resume
-                      </Button>
-                      <Button className="bg-primary hover:bg-primary/90 text-white">
-                        Download Suggestions as PDF
-                      </Button>
-                    </div>
+                  <CardFooter className="flex items-center justify-end gap-3">
+                    <CostNote action="resume_analysis" />
+                    <Button onClick={handleAnalyze} disabled={!file || isAnalyzing}>
+                      {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                      {isAnalyzing ? "Analysing..." : "Analyse resume"}
+                    </Button>
                   </CardFooter>
                 </Card>
               )}
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckSquare className="h-5 w-5 text-primary" />
-                    How Our Resume Analyzer Works
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ol className="list-decimal pl-5 space-y-3">
-                    <li className="text-gray-700">
-                      <strong>Content Extraction:</strong> We parse your resume to extract text while preserving formatting.
-                    </li>
-                    <li className="text-gray-700">
-                      <strong>Language Analysis:</strong> We analyze your word choice, sentence structure, and phrasing to identify improvement opportunities.
-                    </li>
-                    <li className="text-gray-700">
-                      <strong>ATS Optimization:</strong> We check if your resume follows best practices for Applicant Tracking Systems.
-                    </li>
-                    <li className="text-gray-700">
-                      <strong>Industry-Specific Review:</strong> We apply industry-specific standards to ensure your resume meets expectations for your field.
-                    </li>
-                    <li className="text-gray-700">
-                      <strong>Targeted Feedback:</strong> We highlight specific words and phrases that could be improved, with detailed explanations.
-                    </li>
-                  </ol>
-                </CardContent>
-              </Card>
+
+              {analysis && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                        <div>
+                          <CardTitle className="text-xl">{analysis.headline}</CardTitle>
+                          <CardDescription className="text-base text-gray-700 mt-2">{analysis.summary}</CardDescription>
+                        </div>
+                        <div className="text-center shrink-0">
+                          <div className={`text-5xl font-bold ${scoreColor(analysis.overall_score)}`}>{analysis.overall_score}</div>
+                          <div className="text-xs text-gray-500">overall / 100</div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        {Object.entries(analysis.scores).map(([key, value]) => (
+                          <div key={key}>
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">{SCORE_LABELS[key] ?? key}</span>
+                              <span className={scoreColor(value.score)}>{value.score}</span>
+                            </div>
+                            <Progress value={value.score} className="h-2 my-1" />
+                            <p className="text-xs text-gray-500">{value.justification}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="font-semibold text-sm mb-2">Strengths</h3>
+                          <ul className="list-disc pl-5 text-sm space-y-1">
+                            {analysis.strengths.map((s) => (
+                              <li key={s}>{s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        {analysis.keywords_to_add.length > 0 && (
+                          <div>
+                            <h3 className="font-semibold text-sm mb-2">Keywords to add</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {analysis.keywords_to_add.map((k) => (
+                                <Badge key={k} variant="secondary">
+                                  {k}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {analysis.missing_sections.length > 0 && (
+                          <div>
+                            <h3 className="font-semibold text-sm mb-2">Missing sections</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {analysis.missing_sections.map((k) => (
+                                <Badge key={k} variant="outline">
+                                  {k}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-primary" /> Your resume
+                        </CardTitle>
+                        <CardDescription>
+                          Highlighted text has a numbered suggestion. Click a highlight to jump to it.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="max-h-[700px] overflow-y-auto border-t pt-4">
+                        <HighlightedText data={analysis} />
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">{analysis.suggestions.length} suggested edits</CardTitle>
+                        <CardDescription>Ordered by position in your resume. Red means high impact.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3 max-h-[700px] overflow-y-auto border-t pt-4">
+                        {analysis.suggestions.map((s, i) => (
+                          <div
+                            id={`suggestion-${i}`}
+                            key={i}
+                            className={`p-3 rounded-md border-l-4 bg-gray-50 ${s.severity === "high" ? "border-red-500" : s.severity === "medium" ? "border-amber-500" : "border-blue-400"}`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-semibold">
+                                #{i + 1} · {s.category.replace("_", " ")} · {s.severity}
+                              </span>
+                              <Button size="sm" variant="ghost" onClick={() => copy(s.suggestion)} title="Copy suggestion">
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-red-700 line-through decoration-red-300">{s.original}</p>
+                            <p className="text-sm text-green-700 font-medium mt-1">{s.suggestion}</p>
+                            <p className="text-xs text-gray-600 mt-2">{s.reason}</p>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row justify-between gap-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAnalysis(null);
+                        setFile(null);
+                      }}
+                    >
+                      Analyse another resume
+                    </Button>
+                    <Button onClick={downloadReport}>
+                      <Download className="mr-2 h-4 w-4" /> Download report (PDF)
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </TabsContent>
         </Tabs>

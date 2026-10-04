@@ -66,16 +66,16 @@ The goal is a hosted, pay-per-use product running on OpenAI, with output good en
 
 ## 4. Execution checklist
 
-- [ ] P0: Remove hardcoded secrets, committed PII, and runtime artifacts; add `.gitignore` and `.env.example`
-- [ ] P1: New `backend/` FastAPI package: config, DB models, auth, credits, rate limiting, upload validation
-- [ ] P2: OpenAI wrapper and per-feature services with structured schemas and quality prompts
-- [ ] P3: Stripe billing: packs, checkout, webhook, purchase history
-- [ ] P4: Frontend: central API client, auth context, protected routes, credit balance, login/register/pricing pages
-- [ ] P5: Frontend: fix and upgrade every feature page (bugs F2–F6) and remove the fake Network Analysis feature
-- [ ] P6: Legal pages (Terms, Privacy, Refunds) required by payment processors. **The owner must review them**
-- [ ] P7: Dockerfile (multi-stage), docker-compose with Postgres, health check, CI workflow
-- [ ] P8: Backend test suite (LLM mocked) and frontend typecheck/lint/build passing
-- [ ] P9: README with local setup and production deployment steps
+- [x] P0: Remove hardcoded secrets, committed PII, and runtime artifacts; add `.gitignore` and `.env.example`
+- [x] P1: New `backend/` FastAPI package: config, DB models, auth, credits, rate limiting, upload validation
+- [x] P2: OpenAI wrapper and per-feature services with structured schemas and quality prompts
+- [x] P3: Stripe billing: packs, checkout, webhook, purchase history
+- [x] P4: Frontend: central API client, auth context, protected routes, credit balance, login/register/pricing pages
+- [x] P5: Frontend: fix and upgrade every feature page (bugs F2–F6) and remove the fake Network Analysis feature
+- [x] P6: Legal pages (Terms, Privacy, Refunds) required by payment processors. **The owner must review them**
+- [x] P7: Dockerfile (multi-stage), docker-compose with Postgres, health check, CI workflow
+- [x] P8: Backend test suite (LLM mocked) and frontend typecheck/lint/build passing
+- [x] P9: README with local setup and production deployment steps
 
 ## 5. What the owner must still do (cannot be done from code)
 

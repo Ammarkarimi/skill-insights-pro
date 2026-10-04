@@ -1,198 +1,119 @@
+import React, { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Upload, Check, AlertCircle, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Upload, Check, AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+const MAX_MB = 5;
 
 interface FileUploadProps {
-  onFileUpload: (files: FileList, extractedInfo?: any) => void;
-
+  /** Called with the full current list whenever files are added or removed. */
+  onFilesChange: (files: File[]) => void;
   acceptedTypes?: string;
   multiple?: boolean;
-  className?: string;
   maxFiles?: number;
-  extractTechStack?: boolean;
+  className?: string;
+  busy?: boolean;
+  busyLabel?: string;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({
-  onFileUpload,
-  acceptedTypes = '.pdf',
+  onFilesChange,
+  acceptedTypes = ".pdf,.docx,.txt",
   multiple = false,
-  className,
   maxFiles = 5,
-  extractTechStack = false
+  className,
+  busy = false,
+  busyLabel = "Processing...",
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const { toast } = useToast();
-  
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const types = acceptedTypes.split(",").map((t) => t.trim().toLowerCase());
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
+  const update = (next: File[]) => {
+    setFiles(next);
+    onFilesChange(next);
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    
-    if (e.dataTransfer.files) {
-      handleFiles(e.dataTransfer.files);
-    }
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      handleFiles(e.target.files);
-    }
-  };
-
-  const extractTechStackFromResume = async (file) => {
-    setIsProcessing(true);
-    
-    try {
-      // Create FormData to send the file
-      const formData = new FormData();
-      formData.append('resume', file);
-      
-      // Call the backend endpoint to extract tech stack
-      const response = await fetch('http://127.0.0.1:5000/extract_tech_stack', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to extract tech stack from resume');
-      }
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      return {
-        techStack: data.techStack || [],
-        category: data.category || 'Technology'
-      };
-    } catch (error) {
-      console.error('Error extracting tech stack:', error);
-      toast({
-        title: "Error",
-        description: "Failed to extract tech stack from your resume. Please try again.",
-        variant: "destructive"
-      });
-      return null;
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleFiles = async (files: FileList) => {
+  const handleFiles = (incoming: FileList | null) => {
+    if (!incoming || incoming.length === 0) return;
     setError(null);
-    
-    // Check if exceeding max files limit
-    if (multiple && files.length + uploadedFiles.length > maxFiles) {
-      setError(`You can only upload up to ${maxFiles} files.`);
-      return;
-    }
-    
-    // Check file types
-    const types = acceptedTypes.split(',');
-    const newFiles: File[] = [];
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-      
-      if (!types.some(type => type.trim() === fileExtension || type.trim() === file.type)) {
-        setError(`File '${file.name}' is not a supported file type.`);
+    const picked = Array.from(incoming);
+    for (const file of picked) {
+      const ext = "." + (file.name.split(".").pop() || "").toLowerCase();
+      if (!types.includes(ext)) {
+        setError(`'${file.name}' is not supported. Use ${types.join(", ")} files.`);
         return;
       }
-      
-      newFiles.push(file);
+      if (file.size > MAX_MB * 1024 * 1024) {
+        setError(`'${file.name}' is larger than ${MAX_MB} MB.`);
+        return;
+      }
     }
-    
-    const updatedFiles = multiple 
-      ? [...uploadedFiles, ...newFiles]
-      : newFiles;
-    
-    setUploadedFiles(updatedFiles);
-    
-    // If tech stack extraction is enabled, process the file
-    if (extractTechStack && newFiles.length > 0) {
-      setIsProcessing(true);
-      const techStackInfo = await extractTechStackFromResume(newFiles[0]);
-      setIsProcessing(false);
-      
-      // Call the onFileUpload callback with the extracted tech stack
-      onFileUpload(files, techStackInfo);
-    } else {
-      // Regular file upload without extraction
-      onFileUpload(files);
+    if (!multiple) {
+      update(picked.slice(0, 1));
+      return;
     }
-  };
-
-  const handleClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+    const merged = [...files];
+    for (const file of picked) {
+      if (!merged.some((f) => f.name === file.name && f.size === file.size)) merged.push(file);
     }
-  };
-
-  const removeFile = (index: number) => {
-    const newFiles = [...uploadedFiles];
-    newFiles.splice(index, 1);
-    setUploadedFiles(newFiles);
+    if (merged.length > maxFiles) {
+      setError(`You can upload up to ${maxFiles} files.`);
+      return;
+    }
+    update(merged);
   };
 
   return (
     <div className={cn("w-full", className)}>
       <div
+        role="button"
+        tabIndex={0}
         className={cn(
-          "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
+          "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors flex flex-col items-center justify-center",
           isDragging ? "border-primary bg-primary/5" : "border-gray-300 hover:border-primary",
-          isProcessing ? "opacity-70 pointer-events-none" : "",
-          "flex flex-col items-center justify-center"
+          busy && "opacity-70 pointer-events-none",
         )}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={handleClick}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          handleFiles(e.dataTransfer.files);
+        }}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && inputRef.current?.click()}
       >
         <input
           type="file"
-          ref={fileInputRef}
-          onChange={handleFileInputChange}
+          ref={inputRef}
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            e.target.value = ""; // allow re-selecting the same file
+          }}
           className="hidden"
           accept={acceptedTypes}
           multiple={multiple}
         />
-        
-        {isProcessing ? (
+        {busy ? (
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-3"></div>
-            <p className="text-sm text-gray-500">Processing your resume...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+            <p className="text-sm text-gray-500">{busyLabel}</p>
           </div>
         ) : (
           <>
             <Upload size={36} className="text-gray-400 mb-3" />
             <h3 className="text-lg font-medium text-gray-700 mb-1">
-              {multiple ? 'Upload your files' : 'Upload your file'}
+              {multiple ? "Upload your files" : "Upload your file"}
             </h3>
-            <p className="text-sm text-gray-500 mb-3">
-              Drag and drop or click to browse
-            </p>
+            <p className="text-sm text-gray-500 mb-3">Drag and drop or click to browse</p>
             <p className="text-xs text-gray-400">
-              {acceptedTypes.split(',').join(', ')} files are supported
-              {multiple && ` (max ${maxFiles} files)`}
+              {types.join(", ")} up to {MAX_MB} MB{multiple && ` (max ${maxFiles} files)`}
             </p>
           </>
         )}
@@ -205,31 +126,26 @@ const FileUpload: React.FC<FileUploadProps> = ({
         </div>
       )}
 
-      {uploadedFiles.length > 0 && (
-        <div className="mt-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Files</h4>
-          <ul className="space-y-2">
-            {uploadedFiles.map((file, index) => (
-              <li key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                <div className="flex items-center gap-2">
-                  <Check size={16} className="text-green-500" />
-                  <span className="text-sm truncate max-w-xs">{file.name}</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeFile(index);
-                  }}
-                  className="text-gray-500 hover:text-red-500"
-                >
-                  Remove
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {files.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {files.map((file, index) => (
+            <li key={file.name + file.size} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+              <div className="flex items-center gap-2 min-w-0">
+                <Check size={16} className="text-green-500 shrink-0" />
+                <span className="text-sm truncate">{file.name}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => update(files.filter((_, i) => i !== index))}
+                className="text-gray-500 hover:text-red-500"
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

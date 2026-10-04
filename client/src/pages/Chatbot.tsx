@@ -1,136 +1,132 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import Layout from '@/components/Layout';
+import React, { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Send, Loader2, RotateCcw } from "lucide-react";
+import Layout from "@/components/Layout";
+import CostNote from "@/components/CostNote";
+import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
 
 interface Message {
+  role: "user" | "assistant";
   content: string;
-  isUser: boolean;
 }
 
-const Chatbot: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    { content: "Hello! I'm your career assistant. How can I help you today?", isUser: false }
-  ]);
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
+const GREETING: Message = {
+  role: "assistant",
+  content: "Hi! I'm your career assistant. Ask me about career paths, learning roadmaps, resumes, interviews or salary negotiation.",
+};
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+const STARTERS = [
+  "How do I switch from QA to software development?",
+  "Give me a 3-month roadmap to become a data analyst",
+  "How should I answer 'What is your expected salary?'",
+  "Which projects make a junior frontend resume stand out?",
+];
+
+const Chatbot: React.FC = () => {
+  const [messages, setMessages] = useState<Message[]>([GREETING]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
-
-    // Add user message to chat
-    const userMessage = { content: inputValue, isUser: true };
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
+  const send = async (text = input) => {
+    const content = text.trim();
+    if (!content || isLoading) return;
+    const next = [...messages, { role: "user" as const, content }];
+    setMessages(next);
+    setInput("");
     setIsLoading(true);
-
     try {
-      // Call the chatbot API endpoint
-      const response = await fetch('http://127.0.0.1:5000/chatbot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage.content }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response from the chatbot');
+      // Send recent context (excluding the canned greeting) so follow-up questions work.
+      const history = next.slice(1).slice(-12);
+      const { data } = await api.post<{ reply: string }>("/api/chat", { messages: history });
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+    } catch (err) {
+      setMessages((prev) => prev.slice(0, -1));
+      setInput(content);
+      if (!isInsufficientCredits(err)) {
+        setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ ${apiErrorMessage(err)}` }]);
       }
-
-      const data = await response.json();
-      console.log(data);    
-      // Add bot response to chat
-      setMessages(prev => [...prev, { content: data.response, isUser: false }]);
-    } catch (error) {
-      console.error('Error calling chatbot API:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to connect to the chatbot service. Please try again later.',
-        variant: 'destructive',
-      });
-      setMessages(prev => [...prev, { 
-        content: "Sorry, I'm having trouble connecting right now. Please try again later.", 
-        isUser: false 
-      }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
-    }
-  };
-
   return (
     <Layout>
-    <Card className="w-full max-w-3xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-green-500"></span>
-          Career Assistant
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[350px] overflow-y-auto mb-4 p-4 border rounded-md">
-          {messages.map((message, index) => (
-            <div 
-              key={index} 
-              className={`mb-3 flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-            >
-              <div 
-                className={`px-4 py-2 rounded-lg max-w-[80%] ${
-                  message.isUser 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-muted'
+      <Card className="w-full max-w-3xl mx-auto flex flex-col h-[calc(100vh-7rem)] md:h-[calc(100vh-3rem)]">
+        <CardHeader className="border-b py-4">
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-green-500" />
+              Career Assistant
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => setMessages([GREETING])} disabled={isLoading} title="New conversation">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`px-4 py-2 rounded-lg max-w-[85%] text-sm ${
+                  m.role === "user" ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1"
                 }`}
               >
-                {message.content}
+                {m.role === "user" ? m.content : <ReactMarkdown>{m.content}</ReactMarkdown>}
               </div>
             </div>
           ))}
-          <div ref={messagesEndRef} />
-        </div>
-      </CardContent>
-      <CardFooter>
-        <div className="flex w-full gap-2">
-          <Input
-            placeholder="Type your message..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button 
-            onClick={handleSendMessage} 
-            disabled={isLoading || !inputValue.trim()}
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-            <span className="sr-only">Send message</span>
-          </Button>
-        </div>
-      </CardFooter>
-    </Card>
+          {messages.length === 1 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-4">
+              {STARTERS.map((s) => (
+                <button key={s} onClick={() => send(s)} className="text-left text-sm border rounded-lg p-3 hover:bg-gray-50">
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-muted px-4 py-2 rounded-lg">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            </div>
+          )}
+          <div ref={endRef} />
+        </CardContent>
+        <CardFooter className="border-t pt-4 flex-col gap-2">
+          <div className="flex w-full gap-2">
+            <Textarea
+              placeholder="Ask a career question… (Shift+Enter for a new line)"
+              value={input}
+              maxLength={4000}
+              rows={2}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              disabled={isLoading}
+              className="flex-1 resize-none"
+            />
+            <Button onClick={() => send()} disabled={isLoading || !input.trim()} className="self-end">
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <span className="sr-only">Send message</span>
+            </Button>
+          </div>
+          <CostNote action="chat_message" className="self-end" />
+        </CardFooter>
+      </Card>
     </Layout>
   );
 };

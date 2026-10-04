@@ -1,17 +1,33 @@
-import React, { useState } from 'react';
-import Layout from '@/components/Layout';
+import React, { useState } from "react";
+import Layout from "@/components/Layout";
+import CostNote from "@/components/CostNote";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { GraduationCap, BookOpen, Award, Code, Briefcase, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { GraduationCap, BookOpen, Code, Briefcase, ArrowRight, Loader2, X, Target, Search, ListChecks } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
 
 interface Skill {
   name: string;
   proficiency: number;
+}
+
+interface CareerPath {
+  title: string;
+  description: string;
+  matchScore: number;
+  whyGoodFit: string;
+  skills: string[];
+  skillGaps: string[];
+  timeline: string;
+  avgSalary: string;
+  growthRate: string;
 }
 
 interface LearningResource {
@@ -21,433 +37,323 @@ interface LearningResource {
   difficulty: string;
   url: string;
   rating: number;
-}
-
-interface CareerPath {
-  title: string;
-  description: string;
-  skills: string[];
-  timeline: string;
-  avgSalary: string;
-  growthRate: string;
+  reason: string;
+  link_verified?: boolean;
 }
 
 interface SkillToLearn {
   name: string;
   priority: string;
   category: string;
+  reason: string;
 }
 
+interface Recommendations {
+  summary: string;
+  careerPaths: CareerPath[];
+  learningResources: LearningResource[];
+  skillsToLearn: SkillToLearn[];
+  nextSteps: string[];
+}
+
+const level = (p: number) => (p < 40 ? "Beginner" : p <= 70 ? "Working knowledge" : "Strong");
+
 const PathRecommendation: React.FC = () => {
+  const { toast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([
-    { name: 'JavaScript', proficiency: 75 },
-    { name: 'React', proficiency: 65 },
-    { name: 'HTML/CSS', proficiency: 85 },
-    { name: 'Node.js', proficiency: 60 },
-    { name: 'SQL', proficiency: 50 },
+    { name: "JavaScript", proficiency: 60 },
+    { name: "HTML/CSS", proficiency: 70 },
   ]);
-  
-  const [newSkill, setNewSkill] = useState('');
+  const [newSkill, setNewSkill] = useState("");
+  const [goal, setGoal] = useState("");
+  const [experience, setExperience] = useState("");
+  const [location, setLocation] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
-  // State to store recommendations from backend
-  const [recommendations, setRecommendations] = useState<{
-    careerPaths: CareerPath[];
-    learningResources: LearningResource[];
-    skillsToLearn: SkillToLearn[];
-  }>({
-    careerPaths: [],
-    learningResources: [],
-    skillsToLearn: []
-  });
-  
-  const handleAddSkill = () => {
-    if (newSkill && !skills.some(s => s.name.toLowerCase() === newSkill.toLowerCase())) {
-      setSkills([...skills, { name: newSkill, proficiency: 50 }]);
-      setNewSkill('');
+  const [recs, setRecs] = useState<Recommendations | null>(null);
+
+  const addSkill = () => {
+    const name = newSkill.trim();
+    if (name && !skills.some((s) => s.name.toLowerCase() === name.toLowerCase()) && skills.length < 25) {
+      setSkills([...skills, { name, proficiency: 50 }]);
     }
-  };
-  
-  const handleUpdateProficiency = (index: number, value: number) => {
-    const updatedSkills = [...skills];
-    updatedSkills[index].proficiency = value;
-    setSkills(updatedSkills);
-  };
-  
-  const handleGenerateRecommendations = () => {
-    setIsLoading(true);
-    
-    // Send skills data to backend
-    fetch('http://localhost:5000/generate_path_recommendations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ skills }),
-    })
-      .then(response => response.json())
-      .then(data => {
-        console.log('Recommendations received:', data);
-        
-        // Update state with received recommendations
-        setRecommendations({
-          careerPaths: data.careerPaths || [],
-          learningResources: data.learningResources || [],
-          skillsToLearn: data.skillsToLearn || []
-        });
-        
-        setIsLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error:', error);
-        setIsLoading(false);
-      });
+    setNewSkill("");
   };
 
+  const generate = async () => {
+    if (skills.length === 0) {
+      toast({ title: "Add at least one skill", variant: "destructive" });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { data } = await api.post<Recommendations>("/api/career/recommendations", { skills, goal, experience, location });
+      setRecs(data);
+      setTimeout(() => document.getElementById("recommendations")?.scrollIntoView({ behavior: "smooth" }), 100);
+    } catch (err) {
+      if (!isInsufficientCredits(err)) toast({ title: "Could not generate recommendations", description: apiErrorMessage(err), variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const categories = recs ? Array.from(new Set(recs.skillsToLearn.map((s) => s.category))) : [];
+
   return (
-     <Layout>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6">Personalized Path Recommendation</h1>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <Card className="md:col-span-2">
+    <Layout>
+      <div className="max-w-5xl mx-auto px-2 sm:px-6 py-4">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6">Career Path Recommendations</h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-primary" />
-                Your Skills Profile
+              <CardTitle className="text-lg flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary" /> Your skills
               </CardTitle>
-              <CardDescription className="text-sm">
-                Rate your proficiency in different skills to get personalized recommendations.
-              </CardDescription>
+              <CardDescription>Rate yourself honestly. It makes the recommendations far more useful.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-6">
-                <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                  <Input
-                    placeholder="Add a new skill (e.g., Python, Docker, AWS)"
-                    value={newSkill}
-                    onChange={(e) => setNewSkill(e.target.value)}
-                    className="flex-grow"
-                  />
-                  <Button onClick={handleAddSkill} className="w-full sm:w-auto px-8">
-                    <span className="hidden sm:inline">Add Skill</span>
-                    <span className="sm:hidden">Add</span>
-                  </Button>
-                </div>
-                
-                <div className="space-y-5">
-                  {skills.map((skill, index) => (
-                    <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex justify-between mb-2">
-                        <span className="font-medium text-sm sm:text-base">{skill.name}</span>
-                        <span className="text-xs sm:text-sm text-gray-500">{skill.proficiency}%</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={skill.proficiency}
-                          onChange={(e) => handleUpdateProficiency(index, parseInt(e.target.value))}
-                          className="w-full accent-primary"
-                        />
-                      </div>
+              <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                <Input
+                  placeholder="Add a skill (e.g. Python, Docker, AWS)"
+                  value={newSkill}
+                  maxLength={60}
+                  onChange={(e) => setNewSkill(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addSkill()}
+                />
+                <Button onClick={addSkill} className="sm:w-auto">
+                  Add skill
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {skills.map((skill, index) => (
+                  <div key={skill.name} className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium text-sm">{skill.name}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">
+                          {skill.proficiency}% · {level(skill.proficiency)}
+                        </span>
+                        <button
+                          className="text-gray-400 hover:text-red-500"
+                          onClick={() => setSkills(skills.filter((_, i) => i !== index))}
+                          aria-label={`Remove ${skill.name}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </span>
                     </div>
-                  ))}
-                </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={skill.proficiency}
+                      onChange={(e) =>
+                        setSkills(skills.map((s, i) => (i === index ? { ...s, proficiency: parseInt(e.target.value) } : s)))
+                      }
+                      className="w-full accent-primary"
+                    />
+                  </div>
+                ))}
               </div>
             </CardContent>
-            <CardFooter>
-              <Button 
-                className="w-full"
-                onClick={handleGenerateRecommendations}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span className="hidden sm:inline">Generating Recommendations...</span>
-                    <span className="sm:hidden">Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">Generate Path Recommendations</span>
-                    <span className="sm:hidden">Generate</span>
-                  </>
-                )}
-              </Button>
-            </CardFooter>
           </Card>
-          
+
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                <Award className="h-5 w-5 text-primary" />
-                Your Profile Strength
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" /> Your goals
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="mb-6">
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm sm:text-base font-medium">Profile Completeness</span>
-                  <span className="text-sm sm:text-base font-medium">75%</span>
-                </div>
-                <Progress value={75} className="h-2" />
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="goal">Career goal</Label>
+                <Input id="goal" placeholder="e.g. Become an ML engineer" value={goal} maxLength={300} onChange={(e) => setGoal(e.target.value)} />
               </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-start gap-2 bg-green-50 p-2 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm sm:text-base">Skills Added</p>
-                    <p className="text-xs sm:text-sm text-gray-500">You've added {skills.length} skills</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-2 bg-green-50 p-2 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm sm:text-base">Proficiency Rated</p>
-                    <p className="text-xs sm:text-sm text-gray-500">You've rated all your skills</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-50">
-                  <div className="h-5 w-5 border-2 border-gray-300 rounded-full mt-0.5"></div>
-                  <div>
-                    <p className="font-medium text-sm sm:text-base">Career Goals</p>
-                    <p className="text-xs sm:text-sm text-gray-500">Add your career objectives</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-50">
-                  <div className="h-5 w-5 border-2 border-gray-300 rounded-full mt-0.5"></div>
-                  <div>
-                    <p className="font-medium text-sm sm:text-base">Learning Preferences</p>
-                    <p className="text-xs sm:text-sm text-gray-500">Set your learning style</p>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label>Experience</Label>
+                <Select value={experience} onValueChange={setExperience}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["Student", "0-2 years", "2-5 years", "5-10 years", "10+ years", "Career switcher"].map((e) => (
+                      <SelectItem key={e} value={e}>
+                        {e}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Input id="location" placeholder="e.g. Bangalore, India" value={location} maxLength={100} onChange={(e) => setLocation(e.target.value)} />
               </div>
             </CardContent>
+            <CardFooter className="flex flex-col gap-2">
+              <Button className="w-full" onClick={generate} disabled={isLoading || skills.length === 0}>
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isLoading ? "Analysing your profile..." : "Get recommendations"}
+              </Button>
+              <CostNote action="career_recommendations" />
+            </CardFooter>
           </Card>
         </div>
-        
-        <Tabs defaultValue="paths" className="mb-8">
-          <TabsList className="grid grid-cols-3 gap-2 sm:gap-4 w-full mb-6">
-            <TabsTrigger value="paths" className="flex items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
-              <Briefcase className="h-4 w-4" />
-              <span className="hidden sm:inline">Recommended Paths</span>
-              <span className="sm:hidden">Paths</span>
-            </TabsTrigger>
-            <TabsTrigger value="resources" className="flex items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Learning Resources</span>
-              <span className="sm:hidden">Resources</span>
-            </TabsTrigger>
-            <TabsTrigger value="skills" className="flex items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
-              <Code className="h-4 w-4" />
-              <span className="hidden sm:inline">Skills to Develop</span>
-              <span className="sm:hidden">Skills</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="paths">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              {recommendations.careerPaths.length > 0 ? (
-                recommendations.careerPaths.map((path, index) => (
-                  <Card key={index} className="flex flex-col h-full">
-                    <CardHeader>
-                      <CardTitle className="text-lg sm:text-xl">{path.title}</CardTitle>
-                      <CardDescription className="text-sm">{path.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                      <div className="space-y-4">
+
+        {recs && (
+          <div id="recommendations" className="space-y-6">
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="pt-6 space-y-4">
+                <p className="text-gray-800">{recs.summary}</p>
+                <div>
+                  <h3 className="font-semibold flex items-center gap-2 mb-2">
+                    <ListChecks className="h-4 w-4" /> Your next 30 days
+                  </h3>
+                  <ol className="list-decimal pl-5 text-sm space-y-1">
+                    {recs.nextSteps.map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ol>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Tabs defaultValue="paths">
+              <TabsList className="grid grid-cols-3 w-full mb-6">
+                <TabsTrigger value="paths" className="gap-2">
+                  <Briefcase className="h-4 w-4" /> <span className="hidden sm:inline">Career paths</span>
+                  <span className="sm:hidden">Paths</span>
+                </TabsTrigger>
+                <TabsTrigger value="resources" className="gap-2">
+                  <BookOpen className="h-4 w-4" /> <span className="hidden sm:inline">Resources</span>
+                  <span className="sm:hidden">Learn</span>
+                </TabsTrigger>
+                <TabsTrigger value="skills" className="gap-2">
+                  <Code className="h-4 w-4" /> <span className="hidden sm:inline">Skills to develop</span>
+                  <span className="sm:hidden">Skills</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="paths">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {recs.careerPaths.map((path) => (
+                    <Card key={path.title} className="flex flex-col">
+                      <CardHeader>
+                        <div className="flex justify-between items-start gap-2">
+                          <CardTitle className="text-lg">{path.title}</CardTitle>
+                          <Badge variant="secondary">{path.matchScore}% fit</Badge>
+                        </div>
+                        <Progress value={path.matchScore} className="h-1.5" />
+                        <CardDescription>{path.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex-grow space-y-4 text-sm">
+                        <p className="text-gray-700">
+                          <strong>Why it fits:</strong> {path.whyGoodFit}
+                        </p>
                         <div>
-                          <h3 className="text-sm font-medium text-gray-500 mb-2">Required Skills</h3>
-                          <div className="flex flex-wrap gap-2">
-                            {path.skills.map((skill, idx) => (
-                              <Badge key={idx} variant="secondary" className="text-xs sm:text-sm">
-                                {skill}
+                          <h4 className="text-xs font-medium text-gray-500 mb-1">Key skills</h4>
+                          <div className="flex flex-wrap gap-1">
+                            {path.skills.map((s) => (
+                              <Badge key={s} variant="outline">
+                                {s}
                               </Badge>
                             ))}
                           </div>
                         </div>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {path.skillGaps.length > 0 && (
                           <div>
-                            <h3 className="text-sm font-medium text-gray-500 mb-1">Timeline</h3>
-                            <p className="text-sm">{path.timeline}</p>
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-500 mb-1">Average Salary</h3>
-                            <p className="text-sm">{path.avgSalary}</p>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500 mb-1">Growth Outlook</h3>
-                          <div className="flex items-center gap-2">
-                            <span className="text-green-600 text-sm">{path.growthRate}</span>
-                            <span className="text-xs text-gray-500">projected growth</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <Card className="col-span-2">
-                  <CardContent className="pt-6 text-center">
-                    <p className="text-gray-500 text-sm sm:text-base">
-                      Generate recommendations to see career paths tailored to your skills.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="resources">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              {recommendations.learningResources.length > 0 ? (
-                recommendations.learningResources.map((resource, index) => (
-                  <Card key={index} className="flex flex-col h-full">
-                    <CardHeader>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <div>
-                          <CardTitle className="text-lg sm:text-xl">{resource.title}</CardTitle>
-                          <CardDescription className="text-sm">{resource.provider}</CardDescription>
-                        </div>
-                        <Badge className={`self-start sm:self-center ${resource.difficulty === 'Beginner' ? 'bg-green-500' : resource.difficulty === 'Intermediate' ? 'bg-amber-500' : 'bg-red-500'}`}>
-                          {resource.difficulty}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                      <div className="flex flex-col sm:flex-row justify-between gap-2 sm:items-center mb-4">
-                        <Badge variant="outline" className="text-xs sm:text-sm self-start">{resource.type}</Badge>
-                        <div className="flex items-center">
-                          <span className="text-amber-500 mr-1">★</span>
-                          <span className="text-sm">{resource.rating}/5.0</span>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4">
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Why This Is Recommended</h3>
-                        <p className="text-sm text-gray-600">
-                          Based on your skills profile, this resource will help you advance to the next level.
-                        </p>
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button className="w-full" variant="outline" onClick={() => window.open(resource.url, '_blank')}>
-                        <span className="hidden sm:inline">Visit Resource</span>
-                        <span className="sm:hidden">Visit</span>
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))
-              ) : (
-                <Card className="col-span-2">
-                  <CardContent className="pt-6 text-center">
-                    <p className="text-gray-500 text-sm sm:text-base">
-                      Generate recommendations to see learning resources tailored to your skills.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="skills">
-            {recommendations.skillsToLearn.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Recommended Skills to Develop</CardTitle>
-                  <CardDescription className="text-sm">
-                    Based on your current profile and market trends, we recommend focusing on these skills.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <h3 className="text-base sm:text-lg font-semibold mb-2">Most Valuable for Your Profile</h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        These skills will complement your existing strengths and open new opportunities.
-                      </p>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {recommendations.skillsToLearn
-                          .filter(skill => skill.priority === "High")
-                          .slice(0, 3)
-                          .map((skill, idx) => (
-                            <div key={idx} className="border rounded-md p-3 sm:p-4 bg-white">
-                              <h4 className="font-medium text-base">{skill.name}</h4>
-                              <p className="text-xs sm:text-sm text-gray-500 mb-2">{skill.category} development</p>
-                              <div className="flex items-center text-xs sm:text-sm">
-                                <span className="text-green-600 font-medium">High demand</span>
-                                <Separator orientation="vertical" className="mx-2 h-4" />
-                                <span>+30% jobs</span>
-                              </div>
+                            <h4 className="text-xs font-medium text-gray-500 mb-1">Your gaps</h4>
+                            <div className="flex flex-wrap gap-1">
+                              {path.skillGaps.map((s) => (
+                                <Badge key={s} className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                                  {s}
+                                </Badge>
+                              ))}
                             </div>
-                          ))}
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="text-base sm:text-lg font-semibold mb-3">Frontend Skills</h3>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t">
+                          <div>
+                            <h4 className="text-xs text-gray-500">Time to job-ready</h4>
+                            <p>{path.timeline}</p>
+                          </div>
+                          <div>
+                            <h4 className="text-xs text-gray-500">Typical salary</h4>
+                            <p>{path.avgSalary}</p>
+                          </div>
+                          <div>
+                            <h4 className="text-xs text-gray-500">Outlook</h4>
+                            <p className="text-green-700">{path.growthRate}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-4">Salary and outlook figures are AI estimates for guidance only.</p>
+              </TabsContent>
+
+              <TabsContent value="resources">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {recs.learningResources.map((r) => (
+                    <Card key={r.title} className="flex flex-col">
+                      <CardHeader>
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <CardTitle className="text-base">{r.title}</CardTitle>
+                            <CardDescription>
+                              {r.provider} · {r.type}
+                            </CardDescription>
+                          </div>
+                          <Badge className={r.difficulty === "Beginner" ? "bg-green-500" : r.difficulty === "Intermediate" ? "bg-amber-500" : "bg-red-500"}>
+                            {r.difficulty}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="flex-grow text-sm text-gray-600">
+                        <p>{r.reason}</p>
+                        <p className="mt-2 text-amber-600">★ {r.rating.toFixed(1)}</p>
+                      </CardContent>
+                      <CardFooter>
+                        <Button className="w-full" variant="outline" onClick={() => window.open(r.url, "_blank", "noopener")}>
+                          {r.link_verified === false ? <Search className="mr-2 h-4 w-4" /> : null}
+                          {r.link_verified === false ? "Find this resource" : "Visit resource"}
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="skills">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {categories.map((category) => (
+                    <Card key={category}>
+                      <CardHeader>
+                        <CardTitle className="text-base">{category}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
                         <ul className="space-y-3">
-                          {recommendations.skillsToLearn
-                            .filter(skill => skill.category === "Frontend")
-                            .map((skill, idx) => (
-                              <li key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
-                                <div>
-                                  <span className="font-medium text-sm sm:text-base">{skill.name}</span>
-                                  <p className="text-xs sm:text-sm text-gray-500">Frontend development</p>
+                          {recs.skillsToLearn
+                            .filter((s) => s.category === category)
+                            .map((s) => (
+                              <li key={s.name} className="border-b pb-2">
+                                <div className="flex justify-between items-center gap-2">
+                                  <span className="font-medium">{s.name}</span>
+                                  <Badge variant={s.priority === "High" ? "default" : "outline"}>{s.priority} priority</Badge>
                                 </div>
-                                <Badge variant={skill.priority === "High" ? "default" : "outline"} className="self-start sm:self-center">
-                                  {skill.priority} Priority
-                                </Badge>
+                                <p className="text-xs text-gray-500 mt-1">{s.reason}</p>
                               </li>
                             ))}
                         </ul>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-base sm:text-lg font-semibold mb-3">Backend Skills</h3>
-                        <ul className="space-y-3">
-                          {recommendations.skillsToLearn
-                            .filter(skill => skill.category === "Backend")
-                            .map((skill, idx) => (
-                              <li key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
-                                <div>
-                                  <span className="font-medium text-sm sm:text-base">{skill.name}</span>
-                                  <p className="text-xs sm:text-sm text-gray-500">Backend development</p>
-                                </div>
-                                <Badge variant={skill.priority === "High" ? "default" : "outline"} className="self-start sm:self-center">
-                                  {skill.priority} Priority
-                                </Badge>
-                              </li>
-                            ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <p className="text-gray-500 text-sm sm:text-base">
-                    Generate recommendations to see skills you should develop next.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
       </div>
     </Layout>
   );

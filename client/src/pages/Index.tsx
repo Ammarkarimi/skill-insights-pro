@@ -5,19 +5,56 @@ import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { 
-  BookOpen, 
-  BarChart, 
-  FileText, 
-  GraduationCap, 
-  Network, 
-  BriefcaseBusiness, 
-  BotIcon,
-  User2Icon,
-  UsersIcon
-} from 'lucide-react';
+import { BookOpen, BarChart, FileText, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+
+const features = [
+  {
+    title: "Skill Assessment",
+    description: "Take an adaptive test generated from your resume's tech stack, with explanations and a personalised learning path.",
+    icon: <BookOpen size={24} />,
+    path: "/skill-assessment",
+  },
+  {
+    title: "Resume Analyzer",
+    description: "Get recruiter-grade scores, line-by-line rewrites and ATS keyword gaps, then download a PDF report.",
+    icon: <FileText size={24} />,
+    path: "/resume-tips",
+  },
+  {
+    title: "Practice Interview",
+    description: "Answer realistic interview questions by voice or text and get scored, detailed feedback with model answers.",
+    icon: <UsersIcon size={24} />,
+    path: "/practice-interview",
+  },
+  {
+    title: "Job Match",
+    description: "Compare one or more resumes against a job description: requirement-by-requirement fit, gaps and a learning plan.",
+    icon: <BriefcaseBusiness size={24} />,
+    path: "/job-assessment",
+  },
+  {
+    title: "Career Paths",
+    description: "Discover roles that fit your skills and goals, with salary ranges, skill gaps and the resources to close them.",
+    icon: <GraduationCap size={24} />,
+    path: "/path-recommendation",
+  },
+  {
+    title: "Job Market",
+    description: "See demand, salary bands, hiring hubs and related skills for any technology in your country.",
+    icon: <BarChart size={24} />,
+    path: "/job-market",
+  },
+  {
+    title: "Career Chatbot",
+    description: "Ask anything about careers, learning roadmaps, applications or negotiation, any time.",
+    icon: <BotIcon size={24} />,
+    path: "/chatbot",
+  },
+];
 
 const Home: React.FC = () => {
+  const { user } = useAuth();
   return (
     <Layout>
       <section className="mb-16">
@@ -29,7 +66,7 @@ const Home: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              Skill Sphere Navigator
+              {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "Welcome to Skill Sphere"}
             </motion.h1>
             <motion.p 
               className="text-lg mb-8 max-w-xl"
@@ -70,110 +107,16 @@ const Home: React.FC = () => {
         <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Explore Our Features</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
-            <FeatureCard
-              title="Skill Assessment"
-              description="Evaluate your technical skills through our comprehensive assessment system tailored to your experience level."
-              icon={<BookOpen size={24} />}
-              path="/skill-assessment"
-            />
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-          >
-            <FeatureCard
-              title="Job Market Analysis"
-              description="Gain insights into current job market trends, in-demand skills, and salary expectations for your field."
-              icon={<BarChart size={24} />}
-              path="/job-market"
-            />
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-          >
-            <FeatureCard
-              title="Resume & Interview Tips"
-              description="Get expert advice on optimizing your resume and preparing for technical interviews."
-              icon={<FileText size={24} />}
-              path="/resume-tips"
-            />
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
-          >
-            <FeatureCard
-              title="Path Recommendation"
-              description="Receive personalized career path recommendations based on your skills and interests."
-              icon={<GraduationCap size={24} />}
-              path="/path-recommendation"
-            />
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.5 }}
-          >
-            <FeatureCard
-              title="Network Analysis"
-              description="Analyze your professional network and discover potential connections to enhance your career opportunities."
-              icon={<Network size={24} />}
-              path="/network-analysis"
-            />
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.6 }}
-          >
-            <FeatureCard
-              title="Job Assessment"
-              description="Match your resume with job descriptions to evaluate your suitability for specific roles."
-              icon={<BriefcaseBusiness size={24} />}
-              path="/job-assessment"
-            />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.7 }}
-          >
-            <FeatureCard
-              title="Chatbot"
-              description="Ask anything regarding your career advice, just don't think ask."
-              icon={<BotIcon size={24} />}
-              path="/chatbot"
-            />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.8 }}
-          >
-            <FeatureCard
-              title="Interview Practice"
-              description='Sharpen your skills with mock interviews tailored to real-world job roles and questions.'
-              icon={<UsersIcon size={24} />}
-              path="/interview"
-            />
-          </motion.div>
-
+          {features.map((feature, index) => (
+            <motion.div
+              key={feature.path}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.05 * index }}
+            >
+              <FeatureCard {...feature} />
+            </motion.div>
+          ))}
         </div>
       </section>
     </Layout>
