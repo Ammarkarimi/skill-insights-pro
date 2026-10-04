@@ -168,3 +168,23 @@ class Negotiation(Base):
     status: Mapped[str] = mapped_column(String(20), default="active")  # active|final|completed
     report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ProofAssessment(Base):
+    """An adaptive, timed skill proof. The question pool (with answers) never leaves the server."""
+
+    __tablename__ = "proof_assessments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    skill: Mapped[str] = mapped_column(String(80))
+    skill_key: Mapped[str] = mapped_column(String(80), index=True)  # normalised, for cooldowns
+    pool: Mapped[list] = mapped_column(JSON)
+    served: Mapped[list] = mapped_column(JSON, default=list)
+    current_tier: Mapped[int] = mapped_column(Integer, default=2)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active|completed
+    level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    proficiency: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    focus_lost: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

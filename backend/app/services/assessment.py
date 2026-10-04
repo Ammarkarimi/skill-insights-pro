@@ -52,6 +52,28 @@ Rules:
 - Do not reference "the code above" unless `code` is non-empty."""
 
 
+def clean_mcq(q: MCQ) -> dict | None:
+    """Validate one generated MCQ and shuffle its options; None if it is malformed."""
+    options = {o.key: o.text.strip() for o in q.options}
+    if (set(options) != {"A", "B", "C", "D"} or q.answer not in options
+            or len(set(options.values())) < 4):
+        return None  # drop malformed items rather than show a broken question
+    # Shuffle option order so the correct letter is evenly distributed.
+    texts = [options[k] for k in "ABCD"]
+    correct_text = options[q.answer]
+    random.shuffle(texts)
+    shuffled = dict(zip("ABCD", texts, strict=False))
+    return {
+        "question": q.question.strip(),
+        "code": q.code.strip() or None,
+        "options": shuffled,
+        "answer": next(k for k, v in shuffled.items() if v == correct_text),
+        "explanation": q.explanation,
+        "topic": q.topic,
+        "skill": q.skill,
+    }
+
+
 def generate_questions(skills: list[str], difficulty: Difficulty, count: int,
                        user_id: int) -> list[dict]:
     prompt = (
@@ -63,26 +85,10 @@ def generate_questions(skills: list[str], difficulty: Difficulty, count: int,
 
     questions = []
     for q in result.questions:
-        options = {o.key: o.text.strip() for o in q.options}
-        if (set(options) != {"A", "B", "C", "D"} or q.answer not in options
-                or len(set(options.values())) < 4):
-            continue  # drop malformed items rather than show a broken question
-        # Shuffle option order so the correct letter is evenly distributed.
-        texts = [options[k] for k in "ABCD"]
-        correct_text = options[q.answer]
-        random.shuffle(texts)
-        shuffled = dict(zip("ABCD", texts, strict=False))
-        answer = next(k for k, v in shuffled.items() if v == correct_text)
-        questions.append({
-            "id": len(questions) + 1,
-            "question": q.question.strip(),
-            "code": q.code.strip() or None,
-            "options": shuffled,
-            "answer": answer,
-            "explanation": q.explanation,
-            "topic": q.topic,
-            "skill": q.skill,
-        })
+        item = clean_mcq(q)
+        if item is None:
+            continue
+        questions.append({"id": len(questions) + 1, **item})
         if len(questions) == count:
             break
 

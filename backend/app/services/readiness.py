@@ -139,10 +139,12 @@ def target_to_dict(target: TargetRole) -> dict:
 
 
 # ---------------------------------------------------------------- scoring (deterministic, no LLM)
-SOURCE_WEIGHTS = {"assessment": 1.0, "deep_interview": 1.0, "interview": 0.7, "resume": 0.5,
-                  "baseline": 0.4}
+# Proof sources (timed adaptive tests, reviewed real projects) are the strongest evidence.
+SOURCE_WEIGHTS = {"proof_assessment": 1.2, "project": 1.2, "assessment": 1.0, "deep_interview": 1.0,
+                  "interview": 0.7, "resume": 0.5, "baseline": 0.4}
 HALF_LIFE_DAYS = 90.0
-SOURCE_LABELS = {"assessment": "Skill assessment", "deep_interview": "Deep interview",
+SOURCE_LABELS = {"proof_assessment": "Skill proof", "project": "Project review",
+                 "assessment": "Skill assessment", "deep_interview": "Deep interview",
                  "interview": "Practice interview", "resume": "Resume analysis",
                  "baseline": "Resume (setup)"}
 
