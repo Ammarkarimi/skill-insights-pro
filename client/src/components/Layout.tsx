@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/context/AuthContext";
+import { fetchReadiness } from "@/lib/readiness";
 
 interface NavItemProps {
   to: string;
@@ -25,9 +26,10 @@ interface NavItemProps {
   icon: React.ReactNode;
   isActive: boolean;
   onClick?: () => void;
+  badge?: React.ReactNode;
 }
 
-const NavItem = ({ to, label, icon, isActive, onClick }: NavItemProps) => (
+const NavItem = ({ to, label, icon, isActive, onClick, badge }: NavItemProps) => (
   <Link
     to={to}
     onClick={onClick}
@@ -37,7 +39,8 @@ const NavItem = ({ to, label, icon, isActive, onClick }: NavItemProps) => (
     )}
   >
     {icon}
-    <span>{label}</span>
+    <span className="flex-1">{label}</span>
+    {badge}
   </Link>
 );
 
@@ -75,6 +78,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isMobile = useIsMobile();
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [readiness, setReadiness] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    fetchReadiness()
+      .then((r) => setReadiness(r.target ? (r.score ?? 0) : null))
+      .catch(() => undefined);
+  }, [location.pathname]);
   const closeMenu = () => setIsMenuOpen(false);
 
   const handleLogout = async () => {
@@ -126,6 +135,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               icon={item.icon}
               isActive={location.pathname === item.path}
               onClick={isMobile ? closeMenu : undefined}
+              badge={
+                item.path === "/home" && readiness !== null ? (
+                  <span className="text-xs font-semibold rounded-full bg-white/80 text-primary border px-2" title="Readiness score">
+                    {readiness}
+                  </span>
+                ) : undefined
+              }
             />
           ))}
         </nav>

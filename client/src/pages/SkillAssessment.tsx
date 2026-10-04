@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import FileUpload from "@/components/FileUpload";
 import CostNote from "@/components/CostNote";
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
+import { invalidateReadiness } from "@/lib/readiness";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -108,6 +110,21 @@ const SkillAssessment: React.FC = () => {
 
   const selectedSkills = techStacks.filter((t) => t.selected).map((t) => t.name);
 
+  // Deep link from the readiness dashboard: /skill-assessment?skills=React,TypeScript
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const prefill = (searchParams.get("skills") || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, MAX_SKILLS);
+    if (prefill.length) {
+      setTechStacks(prefill.map((name) => ({ name, selected: true })));
+      setStage(Stage.Skills);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const fail = (title: string, err: unknown) => {
     if (isInsufficientCredits(err)) return; // handled globally with a "Buy credits" toast
     toast({ title, description: apiErrorMessage(err), variant: "destructive" });
@@ -188,6 +205,7 @@ const SkillAssessment: React.FC = () => {
       setQuestions(data.questions);
       setScore(data.score);
       setStage(Stage.Results);
+      invalidateReadiness();
     } catch (err) {
       fail("Could not submit your answers", err);
     } finally {

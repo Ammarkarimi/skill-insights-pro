@@ -3,8 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import ReadinessPanel from '@/components/readiness/ReadinessPanel';
 import { BookOpen, BarChart, FileText, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -57,54 +56,20 @@ const Home: React.FC = () => {
   const { user } = useAuth();
   return (
     <Layout>
-      <section className="mb-16">
-        <div className="hero-gradient rounded-2xl p-10 text-center md:text-left md:flex md:items-center md:justify-between">
-          <div className="md:w-1/2">
-            <motion.h1 
-              className="text-4xl md:text-5xl font-bold mb-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "Welcome to Skill Sphere"}
-            </motion.h1>
-            <motion.p 
-              className="text-lg mb-8 max-w-xl"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              Assess your skills, explore job opportunities, and chart your career path with our comprehensive career navigation platform.
-            </motion.p>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-            >
-              <Link to="/skill-assessment">
-                <Button className="bg-white text-skill-blue hover:bg-gray-100 px-8 py-6 text-lg">
-                  Start Your Assessment
-                </Button>
-              </Link>
-            </motion.div>
-          </div>
-          <motion.div 
-            className="hidden md:block md:w-2/5"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            <img 
-              src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1742&q=80" 
-              alt="Career Development" 
-              className="rounded-lg shadow-xl max-h-72 object-cover w-full"
-            />
-          </motion.div>
-        </div>
+      <section className="mb-12">
+        <motion.h1
+          className="text-3xl md:text-4xl font-bold mb-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "Welcome to Skill Sphere"}
+        </motion.h1>
+        <ReadinessPanel />
       </section>
 
       <section>
-        <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Explore Our Features</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">All tools</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (

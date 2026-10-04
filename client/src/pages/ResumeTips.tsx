@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import FileUpload from "@/components/FileUpload";
 import CostNote from "@/components/CostNote";
@@ -15,6 +16,8 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
 import { jsPDF } from "jspdf";
+import { fetchReadiness, invalidateReadiness, TargetRole } from "@/lib/readiness";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Suggestion {
   startIndex: number;
@@ -61,6 +64,16 @@ const ResumeTips: React.FC = () => {
   const [jobDescription, setJobDescription] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [searchParams] = useSearchParams();
+  const [target, setTarget] = useState<TargetRole | null>(null);
+  const [useTarget, setUseTarget] = useState(searchParams.get("useTarget") === "1");
+
+  useEffect(() => {
+    fetchReadiness()
+      .then((r) => setTarget(r.target))
+      .catch(() => undefined);
+  }, []);
+  const forTarget = useTarget && target !== null;
 
   const handleAnalyze = async () => {
     if (!file) return;
@@ -70,8 +83,10 @@ const ResumeTips: React.FC = () => {
       form.append("resume", file);
       form.append("target_role", targetRole);
       form.append("job_description", jobDescription);
+      form.append("use_target", forTarget ? "true" : "false");
       const { data } = await api.post<Analysis>("/api/resume/analyze", form);
       setAnalysis(data);
+      if (forTarget) invalidateReadiness();
     } catch (err) {
       if (!isInsufficientCredits(err)) {
         toast({ title: "Analysis failed", description: apiErrorMessage(err), variant: "destructive" });
@@ -523,12 +538,23 @@ const ResumeTips: React.FC = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <FileUpload onFilesChange={(files) => setFile(files[0] ?? null)} busy={isAnalyzing} busyLabel="Analysing your resume. This takes about 30 seconds..." />
+                    {target && (
+                      <label className="flex items-start gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 cursor-pointer">
+                        <Checkbox checked={useTarget} onCheckedChange={(v) => setUseTarget(v === true)} className="mt-0.5" />
+                        <span className="text-sm">
+                          <span className="font-medium">Analyse for my target role: {target.title}</span>
+                          <span className="block text-gray-600">
+                            Uses its job description unless you paste one below, and counts towards your readiness score.
+                          </span>
+                        </span>
+                      </label>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="target-role">Target role (optional)</Label>
                         <Input
                           id="target-role"
-                          placeholder="e.g. Senior Frontend Engineer"
+                          placeholder={forTarget ? target.title : "e.g. Senior Frontend Engineer"}
                           value={targetRole}
                           maxLength={120}
                           onChange={(e) => setTargetRole(e.target.value)}
@@ -538,7 +564,7 @@ const ResumeTips: React.FC = () => {
                         <Label htmlFor="jd">Job description (optional)</Label>
                         <Textarea
                           id="jd"
-                          placeholder="Paste a job posting to tailor the feedback"
+                          placeholder={forTarget ? "Leave empty to use your target role's job description" : "Paste a job posting to tailor the feedback"}
                           className="min-h-[96px]"
                           value={jobDescription}
                           maxLength={12000}
