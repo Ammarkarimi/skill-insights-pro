@@ -15,6 +15,9 @@ import { Loader2, Mic, MicOff, Volume2, VolumeX, MessageSquare, History, Chevron
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
+import { getRecognition, READINESS_LABELS, SpeechRecognitionLike } from "@/lib/speech";
+import { useSearchParams } from "react-router-dom";
+import DeepInterview from "@/components/interview/DeepInterview";
 
 const TOPICS = [
   "Frontend Development",
@@ -63,40 +66,20 @@ interface Evaluation {
 
 interface HistoryItem {
   id: number;
+  kind: "quick" | "deep";
   topic: string;
   difficulty: string;
   overallScore: number;
   createdAt: string;
 }
 
-const READINESS: Record<string, string> = {
-  ready: "Interview ready",
-  almost_ready: "Almost ready",
-  needs_practice: "Needs more practice",
-  not_ready: "Not ready yet",
-};
-
-// Minimal typing for the Web Speech API (not in the TS DOM lib).
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((e: { error: string }) => void) | null;
-};
-
-const getRecognition = (): SpeechRecognitionLike | null => {
-  const w = window as unknown as Record<string, new () => SpeechRecognitionLike>;
-  const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
-  return Ctor ? new Ctor() : null;
-};
 
 const PracticeInterview: React.FC = () => {
   const { toast } = useToast();
   const { cost } = useAuth();
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<"quick" | "deep">(searchParams.get("mode") === "deep" ? "deep" : "quick");
+  const [deepOpenId, setDeepOpenId] = useState<number | null>(null);
   const [step, setStep] = useState<"setup" | "interview" | "results">("setup");
   const [topic, setTopic] = useState("");
   const [customTopic, setCustomTopic] = useState("");
@@ -237,7 +220,13 @@ const PracticeInterview: React.FC = () => {
     }
   };
 
-  const openPast = async (id: number) => {
+  const openPast = async (id: number, kind: HistoryItem["kind"] = "quick") => {
+    if (kind === "deep") {
+      setDeepOpenId(id);
+      setMode("deep");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     try {
       const { data } = await api.get<Evaluation>(`/api/interview/${id}`);
       setEvaluation(data);
@@ -262,7 +251,34 @@ const PracticeInterview: React.FC = () => {
       <div className="max-w-5xl mx-auto py-4">
         <h1 className="text-3xl font-bold mb-6 text-center">Practice Interview</h1>
 
-        {step === "setup" && (
+        {(mode === "deep" || step === "setup") && (
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex rounded-lg border bg-muted p-1" role="tablist">
+              {([
+                ["quick", "Quick practice"],
+                ["deep", "Defend my resume"],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  role="tab"
+                  aria-selected={mode === value}
+                  onClick={() => {
+                    setMode(value);
+                    setDeepOpenId(null);
+                  }}
+                  className={`px-4 py-2 text-sm rounded-md transition-colors ${mode === value ? "bg-white shadow-sm font-medium" : "text-gray-600"}`}
+                >
+                  {label}
+                  {value === "deep" && <span className="ml-2 text-[10px] font-semibold text-primary">NEW</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {mode === "deep" && <DeepInterview key={deepOpenId ?? "new"} openId={deepOpenId} />}
+
+        {mode === "quick" && step === "setup" && (
           <div className="space-y-6">
             <Card className="max-w-2xl mx-auto">
               <CardHeader>
@@ -350,7 +366,7 @@ const PracticeInterview: React.FC = () => {
                 </CardHeader>
                 <CardContent className="divide-y">
                   {history.map((h) => (
-                    <button key={h.id} onClick={() => openPast(h.id)} className="w-full flex items-center justify-between py-3 text-left hover:bg-gray-50 px-2 rounded">
+                    <button key={h.id} onClick={() => openPast(h.id, h.kind)} className="w-full flex items-center justify-between py-3 text-left hover:bg-gray-50 px-2 rounded">
                       <span>
                         <span className="font-medium">{h.topic}</span>
                         <span className="text-xs text-gray-500 block">
@@ -369,7 +385,7 @@ const PracticeInterview: React.FC = () => {
           </div>
         )}
 
-        {step === "interview" && questions[index] && (
+        {mode === "quick" && step === "interview" && questions[index] && (
           <div className="space-y-6">
             <div className="flex items-center gap-4">
               <Progress value={((index + 1) / questions.length) * 100} className="h-2 flex-1" />
@@ -445,7 +461,7 @@ const PracticeInterview: React.FC = () => {
           </div>
         )}
 
-        {step === "results" && evaluation && (
+        {mode === "quick" && step === "results" && evaluation && (
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -458,7 +474,7 @@ const PracticeInterview: React.FC = () => {
                   </div>
                   <div className="text-center shrink-0">
                     <div className="text-5xl font-bold text-primary">{evaluation.overall.overall_score}</div>
-                    <Badge variant="secondary">{READINESS[evaluation.overall.readiness] ?? evaluation.overall.readiness}</Badge>
+                    <Badge variant="secondary">{READINESS_LABELS[evaluation.overall.readiness] ?? evaluation.overall.readiness}</Badge>
                   </div>
                 </div>
               </CardHeader>

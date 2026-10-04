@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/context/AuthContext";
-import { fetchReadiness } from "@/lib/readiness";
+import { fetchReadiness, READINESS_CHANGED_EVENT } from "@/lib/readiness";
 
 interface NavItemProps {
   to: string;
@@ -80,9 +80,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [readiness, setReadiness] = React.useState<number | null>(null);
   React.useEffect(() => {
-    fetchReadiness()
-      .then((r) => setReadiness(r.target ? (r.score ?? 0) : null))
-      .catch(() => undefined);
+    const load = () =>
+      fetchReadiness()
+        .then((r) => setReadiness(r.target ? (r.score ?? 0) : null))
+        .catch(() => undefined);
+    load();
+    window.addEventListener(READINESS_CHANGED_EVENT, load);
+    return () => window.removeEventListener(READINESS_CHANGED_EVENT, load);
   }, [location.pathname]);
   const closeMenu = () => setIsMenuOpen(false);
 

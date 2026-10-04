@@ -54,8 +54,12 @@ export async function fetchReadiness(force = false): Promise<Readiness> {
   return data;
 }
 
+export const READINESS_CHANGED_EVENT = "skillsphere:readiness-changed";
+
+/** Call after anything that may change readiness; listeners (e.g. the sidebar badge) refetch. */
 export function invalidateReadiness() {
   cached = null;
+  window.dispatchEvent(new Event(READINESS_CHANGED_EVENT));
 }
 
 export const scoreColor = (s: number | null | undefined) =>
