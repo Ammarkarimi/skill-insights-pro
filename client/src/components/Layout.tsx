@@ -18,6 +18,7 @@ import {
   Mail,
   HandCoins,
   BadgeCheck,
+  KanbanSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -38,7 +39,7 @@ const NavItem = ({ to, label, icon, isActive, onClick, badge }: NavItemProps) =>
     to={to}
     onClick={onClick}
     className={cn(
-      "flex items-center gap-2 px-4 py-3 rounded-md transition-colors",
+      "flex items-center gap-2 px-4 py-2 rounded-md transition-colors text-sm",
       isActive ? "bg-primary text-primary-foreground" : "text-gray-700 hover:bg-gray-100",
     )}
   >
@@ -48,19 +49,52 @@ const NavItem = ({ to, label, icon, isActive, onClick, badge }: NavItemProps) =>
   </Link>
 );
 
-const navItems = [
-  { path: "/home", label: "Dashboard", icon: <Home size={20} /> },
-  { path: "/portfolio", label: "Skill Portfolio", icon: <BadgeCheck size={20} /> },
-  { path: "/skill-assessment", label: "Skill Assessment", icon: <BookOpen size={20} /> },
-  { path: "/resume-tips", label: "Resume Analyzer & Tips", icon: <FileText size={20} /> },
-  { path: "/resume-tailor", label: "Resume Tailor", icon: <FilePen size={20} /> },
-  { path: "/letters", label: "Cover Letters & Outreach", icon: <Mail size={20} /> },
-  { path: "/practice-interview", label: "Practice Interview", icon: <VideoIcon size={20} /> },
-  { path: "/job-assessment", label: "Job Match", icon: <BriefcaseBusiness size={20} /> },
-  { path: "/negotiation", label: "Salary Negotiation", icon: <HandCoins size={20} /> },
-  { path: "/path-recommendation", label: "Career Paths", icon: <GraduationCap size={20} /> },
-  { path: "/job-market", label: "Job Market", icon: <BarChart size={20} /> },
-  { path: "/chatbot", label: "Career Chatbot", icon: <BotIcon size={20} /> },
+interface NavLink {
+  path: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+// Grouped by where the user is in the job search.
+const navSections: { title: string; items: NavLink[] }[] = [
+  {
+    title: "Overview",
+    items: [
+      { path: "/home", label: "Dashboard", icon: <Home size={20} /> },
+      { path: "/applications", label: "Applications", icon: <KanbanSquare size={20} /> },
+    ],
+  },
+  {
+    title: "Build skills",
+    items: [
+      { path: "/skill-assessment", label: "Skill Assessment", icon: <BookOpen size={20} /> },
+      { path: "/portfolio", label: "Skill Portfolio", icon: <BadgeCheck size={20} /> },
+    ],
+  },
+  {
+    title: "Apply",
+    items: [
+      { path: "/resume-tips", label: "Resume Analyzer & Tips", icon: <FileText size={20} /> },
+      { path: "/resume-tailor", label: "Resume Tailor", icon: <FilePen size={20} /> },
+      { path: "/letters", label: "Cover Letters & Outreach", icon: <Mail size={20} /> },
+      { path: "/job-assessment", label: "Job Match", icon: <BriefcaseBusiness size={20} /> },
+    ],
+  },
+  {
+    title: "Interview",
+    items: [
+      { path: "/practice-interview", label: "Practice Interview", icon: <VideoIcon size={20} /> },
+      { path: "/negotiation", label: "Salary Negotiation", icon: <HandCoins size={20} /> },
+    ],
+  },
+  {
+    title: "Explore",
+    items: [
+      { path: "/path-recommendation", label: "Career Paths", icon: <GraduationCap size={20} /> },
+      { path: "/job-market", label: "Job Market", icon: <BarChart size={20} /> },
+      { path: "/chatbot", label: "Career Chatbot", icon: <BotIcon size={20} /> },
+    ],
+  },
 ];
 
 const CreditsPill: React.FC<{ onClick?: () => void }> = ({ onClick }) => {
@@ -138,23 +172,28 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         )}
 
-        <nav className="p-2 space-y-1 flex-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavItem
-              key={item.path}
-              to={item.path}
-              label={item.label}
-              icon={item.icon}
-              isActive={location.pathname === item.path}
-              onClick={isMobile ? closeMenu : undefined}
-              badge={
-                item.path === "/home" && readiness !== null ? (
-                  <span className="text-xs font-semibold rounded-full bg-white/80 text-primary border px-2" title="Readiness score">
-                    {readiness}
-                  </span>
-                ) : undefined
-              }
-            />
+        <nav className="p-2 flex-1 overflow-y-auto space-y-3">
+          {navSections.map((section) => (
+            <div key={section.title} className="space-y-0.5">
+              <p className="px-4 pt-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{section.title}</p>
+              {section.items.map((item) => (
+                <NavItem
+                  key={item.path}
+                  to={item.path}
+                  label={item.label}
+                  icon={item.icon}
+                  isActive={location.pathname === item.path}
+                  onClick={isMobile ? closeMenu : undefined}
+                  badge={
+                    item.path === "/home" && readiness !== null ? (
+                      <span className="text-xs font-semibold rounded-full bg-white/80 text-primary border px-2" title="Readiness score">
+                        {readiness}
+                      </span>
+                    ) : undefined
+                  }
+                />
+              ))}
+            </div>
           ))}
         </nav>
 

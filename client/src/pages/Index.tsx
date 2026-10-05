@@ -4,10 +4,16 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
-import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
+import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon, KanbanSquare } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const features = [
+  {
+    title: "Applications",
+    description: "Track every job by stage, with a prep checklist and an AI interview prep kit for each one.",
+    icon: <KanbanSquare size={24} />,
+    path: "/applications",
+  },
   {
     title: "Skill Portfolio",
     description: "Prove skills with timed adaptive tests and AI-reviewed GitHub projects, then share a verified portfolio page.",

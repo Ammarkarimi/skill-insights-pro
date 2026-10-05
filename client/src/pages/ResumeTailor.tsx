@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
 import { fetchReadiness, TargetRole } from "@/lib/readiness";
+import { markStepDone, useApplicationPrefill } from "@/lib/applications";
 
 interface Role {
   title: string;
@@ -101,10 +102,20 @@ const ResumeTailor: React.FC = () => {
     fetchReadiness()
       .then((r) => {
         setTarget(r.target);
-        setUseTarget(!!r.target?.jobDescription);
+        // Opened from an application: tailor for that job, not the target role.
+        setUseTarget(!!r.target?.jobDescription && !new URLSearchParams(window.location.search).get("application"));
       })
       .catch(() => undefined);
   }, []);
+
+  const [appParams, setAppParams] = useState<URLSearchParams | null>(null);
+  useApplicationPrefill((app, params) => {
+    setJobTitle(app.title);
+    setCompany(app.company);
+    setJd(app.jobDescription);
+    setUseTarget(false);
+    setAppParams(params);
+  });
 
   const forTarget = useTarget && target !== null;
   const open = (t: Tailored) => {
@@ -139,6 +150,7 @@ const ResumeTailor: React.FC = () => {
       const { data } = await api.post<Tailored>("/api/tailor", form);
       open(data);
       loadSaved();
+      if (appParams) markStepDone(appParams, "tailor");
     } catch (err) {
       fail("Could not tailor your resume", err);
     } finally {

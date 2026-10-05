@@ -18,6 +18,7 @@ const ResumeTailor = lazy(() => import("./pages/ResumeTailor"));
 const Letters = lazy(() => import("./pages/Letters"));
 const Negotiation = lazy(() => import("./pages/Negotiation"));
 const SkillPortfolio = lazy(() => import("./pages/SkillPortfolio"));
+const Applications = lazy(() => import("./pages/Applications"));
 const PublicPortfolio = lazy(() => import("./pages/PublicPortfolio"));
 const PathRecommendation = lazy(() => import("./pages/PathRecommendation"));
 const JobAssessment = lazy(() => import("./pages/JobAssessment"));
@@ -37,6 +38,7 @@ const Fallback = () => (
 
 const protectedRoutes: [string, React.ComponentType][] = [
   ["/home", Index],
+  ["/applications", Applications],
   ["/skill-assessment", SkillAssessment],
   ["/job-market", JobMarket],
   ["/resume-tips", ResumeTips],

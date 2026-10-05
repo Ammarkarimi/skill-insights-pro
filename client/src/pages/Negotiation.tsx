@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { markStepDone, useApplicationPrefill } from "@/lib/applications";
 import { ChevronRight, Copy, HandCoins, History, Loader2, Send, Trophy } from "lucide-react";
 import Layout from "@/components/Layout";
 import CostNote from "@/components/CostNote";
@@ -94,6 +95,12 @@ const Negotiation: React.FC = () => {
   const money = (n: number, currency = session?.scenario.currency ?? "USD") =>
     new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
 
+  const [appParams, setAppParams] = useState<URLSearchParams | null>(null);
+  useApplicationPrefill((app, params) => {
+    setForm((f) => ({ ...f, role: app.title.slice(0, 120), location: app.location || f.location }));
+    setAppParams(params);
+  });
+
   const loadHistory = () =>
     api
       .get<{ negotiations: HistoryItem[] }>("/api/negotiation")
@@ -123,6 +130,7 @@ const Negotiation: React.FC = () => {
         competing_offer: form.competing ? Number(form.competing) : null,
       });
       setSession(data);
+      if (appParams) markStepDone(appParams, "negotiate");
     } catch (err) {
       fail("Could not start the negotiation", err);
     } finally {

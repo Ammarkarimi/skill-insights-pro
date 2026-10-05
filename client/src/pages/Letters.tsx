@@ -14,8 +14,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { api, apiErrorMessage, isInsufficientCredits } from "@/lib/api";
 import { fetchReadiness, TargetRole } from "@/lib/readiness";
+import { markStepDone, useApplicationPrefill } from "@/lib/applications";
 
 type Kind = "cover_letter" | "recruiter_email" | "linkedin_note" | "referral_request" | "thank_you";
+
+// Which application checklist step each message type completes.
+const STEP_FOR_KIND: Record<Kind, string> = {
+  cover_letter: "cover_letter",
+  recruiter_email: "follow_up",
+  linkedin_note: "follow_up",
+  referral_request: "referral",
+  thank_you: "thank_you",
+};
 
 const KINDS: { value: Kind; label: string; hint: string; icon: React.ReactNode; notes: string }[] = [
   { value: "cover_letter", label: "Cover letter", hint: "250–350 words", icon: <FileText className="h-5 w-5" />, notes: "Anything to emphasise (optional)" },
@@ -68,6 +78,18 @@ const Letters: React.FC = () => {
       .catch(() => undefined);
   }, []);
 
+  const [appParams, setAppParams] = useState<URLSearchParams | null>(null);
+  useApplicationPrefill((app, params) => {
+    setJobTitle(app.title);
+    setCompany(app.company);
+    setJd(app.jobDescription);
+    if (app.contact) setRecipient(app.contact.split(/[,(<]/)[0].trim().slice(0, 120));
+    const wanted = params.get("kind");
+    if (KINDS.some((k) => k.value === wanted)) setKind(wanted as Kind);
+    setUseTarget(false);
+    setAppParams(params);
+  });
+
   const meta = KINDS.find((k) => k.value === kind)!;
   const fromSaved = source !== "upload";
   const canWrite = (fromSaved || !!file) && (kind !== "thank_you" || notes.trim().length > 0);
@@ -86,6 +108,7 @@ const Letters: React.FC = () => {
       setResult(data);
       setSubject(data.subject);
       setBody(data.body);
+      if (appParams) markStepDone(appParams, STEP_FOR_KIND[kind]);
     } catch (err) {
       if (!isInsufficientCredits(err)) toast({ title: "Could not write your message", description: apiErrorMessage(err), variant: "destructive" });
     } finally {
