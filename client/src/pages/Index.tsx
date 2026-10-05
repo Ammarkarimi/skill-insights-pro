@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
-import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon, KanbanSquare } from 'lucide-react';
+import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon, KanbanSquare, Timer } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const features = [
@@ -19,6 +19,12 @@ const features = [
     description: "Prove skills with timed adaptive tests and AI-reviewed GitHub projects, then share a verified portfolio page.",
     icon: <BadgeCheck size={24} />,
     path: "/portfolio",
+  },
+  {
+    title: "Practice Tests",
+    description: "Timed aptitude tests and coding problems that run in your browser, with an interviewer-style code review.",
+    icon: <Timer size={24} />,
+    path: "/practice-tests",
   },
   {
     title: "Skill Assessment",

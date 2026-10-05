@@ -19,6 +19,7 @@ import {
   HandCoins,
   BadgeCheck,
   KanbanSquare,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -68,6 +69,7 @@ const navSections: { title: string; items: NavLink[] }[] = [
     title: "Build skills",
     items: [
       { path: "/skill-assessment", label: "Skill Assessment", icon: <BookOpen size={20} /> },
+      { path: "/practice-tests", label: "Practice Tests", icon: <Timer size={20} /> },
       { path: "/portfolio", label: "Skill Portfolio", icon: <BadgeCheck size={20} /> },
     ],
   },

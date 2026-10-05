@@ -19,6 +19,7 @@ const Letters = lazy(() => import("./pages/Letters"));
 const Negotiation = lazy(() => import("./pages/Negotiation"));
 const SkillPortfolio = lazy(() => import("./pages/SkillPortfolio"));
 const Applications = lazy(() => import("./pages/Applications"));
+const PracticeTests = lazy(() => import("./pages/PracticeTests"));
 const PublicPortfolio = lazy(() => import("./pages/PublicPortfolio"));
 const PathRecommendation = lazy(() => import("./pages/PathRecommendation"));
 const JobAssessment = lazy(() => import("./pages/JobAssessment"));
@@ -39,6 +40,7 @@ const Fallback = () => (
 const protectedRoutes: [string, React.ComponentType][] = [
   ["/home", Index],
   ["/applications", Applications],
+  ["/practice-tests", PracticeTests],
   ["/skill-assessment", SkillAssessment],
   ["/job-market", JobMarket],
   ["/resume-tips", ResumeTips],
