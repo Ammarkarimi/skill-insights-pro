@@ -75,10 +75,17 @@ export interface Pricing {
   costs: Record<string, number>;
   freeSignupCredits: number;
   paymentsEnabled: boolean;
+  /** Rupee packs paid through Razorpay (UPI, cards, netbanking). */
+  inr?: { enabled: boolean; currency: "inr"; packs: CreditPack[]; keyId: string };
 }
 
+/** Whole amounts print without decimals (₹249, $10); others keep them ($3.99). */
 export function formatMoney(cents: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: currency.toUpperCase() }).format(
-    cents / 100,
-  );
+  const whole = cents % 100 === 0;
+  return new Intl.NumberFormat(currency.toLowerCase() === "inr" ? "en-IN" : undefined, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
+  }).format(cents / 100);
 }

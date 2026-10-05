@@ -6,6 +6,7 @@
   import { useAuth } from "@/context/AuthContext"
   import { formatMoney } from "@/lib/api"
   import { COMPANY_NAME, SUPPORT_EMAIL } from "@/lib/pricing"
+  import { usePayCurrency } from "@/lib/currency"
   import {
     Menu,
     X,
@@ -31,6 +32,7 @@
     const { user, pricing } = useAuth()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [activeSection, setActiveSection] = useState("home")
+    const pay = usePayCurrency(pricing)
   
     useEffect(() => {
       const handleScroll = () => {
@@ -312,8 +314,24 @@
               more. Credits never expire, and failed requests are never charged.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto px-4">
-            {(pricing?.packs ?? []).map((pack) => (
+          {pay.showSwitch && (
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex rounded-lg border bg-white p-1" role="group" aria-label="Currency">
+                {([["default", (pricing?.currency ?? "usd").toUpperCase()], ["inr", "INR (UPI)"]] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => pay.set(value)}
+                    aria-pressed={pay.current === value}
+                    className={`rounded-md px-4 py-1.5 text-sm ${pay.current === value ? "bg-indigo-600 text-white" : "text-gray-700"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className={`grid grid-cols-1 gap-6 mx-auto px-4 ${pay.packs.length > 3 ? "sm:grid-cols-2 lg:grid-cols-4 max-w-6xl" : "md:grid-cols-3 max-w-5xl"}`}>
+            {pay.packs.map((pack) => (
               <div
                 key={pack.id}
                 className={`rounded-xl border bg-white p-6 shadow-sm flex flex-col ${pack.highlight ? "border-2 border-indigo-500" : ""}`}
@@ -321,7 +339,7 @@
                 {pack.highlight && <span className="text-xs font-semibold text-indigo-600 mb-2">MOST POPULAR</span>}
                 <h3 className="text-xl font-bold">{pack.name}</h3>
                 <p className="text-gray-500 text-sm mb-4">{pack.description}</p>
-                <div className="text-4xl font-bold mb-1">{formatMoney(pack.price_cents, pricing?.currency ?? "usd")}</div>
+                <div className="text-4xl font-bold mb-1">{formatMoney(pack.price_cents, pay.currency)}</div>
                 <div className="text-gray-600 mb-6">{pack.credits} credits</div>
                 <Button asChild className="mt-auto" variant={pack.highlight ? "default" : "outline"}>
                   <Link to={user ? "/billing" : "/register"}>{user ? "Buy credits" : "Get started"}</Link>
