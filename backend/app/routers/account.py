@@ -12,21 +12,11 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import EmailPreference, User, utcnow
 from ..ratelimit import limiter
-from ..security import create_purpose_token, current_user, read_purpose_token
+from ..security import current_user, read_purpose_token
 from ..services import mailer
+from ..services.mailer import UNSUBSCRIBE, unsubscribe_links
 
 router = APIRouter(tags=["account"])
-
-UNSUBSCRIBE = "unsubscribe"
-
-
-def unsubscribe_links(user_id: int) -> dict:
-    """Footer link (a page) and one-click URL (for mail clients) for reminder emails."""
-    token = create_purpose_token(UNSUBSCRIBE, user_id)
-    base = get_settings().app_url.rstrip("/")
-    return {"unsubscribe_url": f"{base}/unsubscribe?token={token}",
-            "one_click_url": f"{base}/api/email/unsubscribe?token={token}"}
-
 
 def prefs_for(db: Session, user_id: int) -> EmailPreference | None:
     return db.scalar(select(EmailPreference).where(EmailPreference.user_id == user_id))

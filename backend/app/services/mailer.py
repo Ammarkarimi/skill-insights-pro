@@ -15,10 +15,20 @@ from email.message import EmailMessage
 from email.utils import formataddr, make_msgid, parseaddr
 
 from ..config import get_settings
+from ..security import create_purpose_token
 
 log = logging.getLogger(__name__)
 OUTBOX: list[dict] = []  # local development and tests only
 OUTBOX_LIMIT = 100
+UNSUBSCRIBE = "unsubscribe"
+
+
+def unsubscribe_links(user_id: int) -> dict:
+    """Footer link (a page) and one-click URL (for mail clients) for reminder emails."""
+    token = create_purpose_token(UNSUBSCRIBE, user_id)
+    base = get_settings().app_url.rstrip("/")
+    return {"unsubscribe_url": f"{base}/unsubscribe?token={token}",
+            "one_click_url": f"{base}/api/email/unsubscribe?token={token}"}
 
 
 @dataclass
