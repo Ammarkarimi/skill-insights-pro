@@ -213,11 +213,25 @@ def compute_readiness(target: TargetRole, evidence: list[Evidence],
 
 
 def next_actions(target: TargetRole, computed: dict, evidence: list[Evidence],
-                 now: datetime | None = None, limit: int = 5) -> list[dict]:
-    """Rule-based suggestions for the step that will move readiness the most."""
+                 now: datetime | None = None, limit: int = 6, learning: dict | None = None) -> list[dict]:
+    """Rule-based suggestions for the step that will move readiness the most.
+
+    `learning` is {"dueCards": int, "plan": plan brief or None} from the learning loop.
+    """
     now = now or datetime.now(timezone.utc)
     rows = computed["requirements"]
     actions: list[dict] = []
+    learning = learning or {}
+
+    # A two-minute review of past mistakes is the easiest daily habit to keep.
+    if learning.get("dueCards"):
+        n = learning["dueCards"]
+        actions.append({
+            "type": "review",
+            "title": f"Review {n} past mistake{'s' if n != 1 else ''} (2 min)",
+            "description": "Questions you got wrong come back at growing intervals until they stick.",
+            "href": "/learning",
+        })
 
     def recent(source: str, days: int) -> bool:
         return any(e.source == source and (now - _as_utc(e.created_at)).days < days for e in evidence)
@@ -263,6 +277,15 @@ def next_actions(target: TargetRole, computed: dict, evidence: list[Evidence],
             "description": "A timed, adaptive skill proof gives recruiters verifiable evidence and "
                            "counts more towards readiness.",
             "href": "/portfolio?prove=" + quote(r["name"]),
+        })
+
+    plan = learning.get("plan")
+    if plan and plan.get("nextWeek"):
+        actions.append({
+            "type": "plan",
+            "title": f"Continue {plan['title']}: week {plan['nextWeek']}",
+            "description": f"{plan['progressPct']}% done. Finish the plan, then re-test to see the gain.",
+            "href": "/learning",
         })
 
     weak = [r for r in rows if r["score"] is not None and r["score"] < 60]

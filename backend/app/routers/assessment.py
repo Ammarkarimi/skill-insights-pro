@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 
 from ..credits import charge
 from ..db import get_db
-from ..models import AssessmentSession, User, utcnow
+from ..models import AssessmentSession, LearningPlan, User, utcnow
 from ..security import current_user
 from ..services import assessment as svc
-from ..services import readiness
+from ..services import learning, readiness
 
 router = APIRouter(prefix="/api/assessment", tags=["assessment"])
 
@@ -56,6 +56,9 @@ def submit(session_id: int, body: SubmitIn, user: User = Depends(current_user),
     session.result = result
     session.score = result["score"]
     session.submitted_at = utcnow()
+    missed = [q for q in result["questions"] if not q["is_correct"]]
+    learning.add_cards(db, user.id, "assessment", missed, skill_of=lambda q: q.get("skill") or "")
+    learning.log_practice(db, user.id, "assessment")
     db.commit()
     readiness.record_assessment(db, user.id, session.id, session.difficulty, result["perSkill"])
     return {"sessionId": session.id, **result}
@@ -73,5 +76,12 @@ def learning_path(body: LearningPathIn, response: Response, user: User = Depends
         raise HTTPException(status.HTTP_409_CONFLICT,
                             "Submit the assessment before requesting a learning path.")
     with charge(db, user, "learning_path", response):
-        return svc.build_learning_path(session.skills, session.difficulty, session.result["score"],
-                                       svc.learning_path_inputs(session.result["questions"]), user.id)
+        content = svc.build_learning_path(session.skills, session.difficulty, session.result["score"],
+                                          svc.learning_path_inputs(session.result["questions"]), user.id)
+    # Saved so the user can track it week by week and re-test against the same baseline.
+    plan = LearningPlan(user_id=user.id, assessment_session_id=session.id, skills=session.skills,
+                        difficulty=session.difficulty, baseline_score=session.result["score"],
+                        content=content, progress={"weeks": [], "resources": []})
+    db.add(plan)
+    db.commit()
+    return {**content, "id": plan.id}

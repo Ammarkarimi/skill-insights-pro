@@ -12,8 +12,8 @@ from ..credits import charge
 from ..db import get_db
 from ..models import ProofAssessment, User
 from ..security import current_user
+from ..services import learning, readiness
 from ..services import proof as svc
-from ..services import readiness
 
 router = APIRouter(prefix="/api/proof", tags=["proof"])
 
@@ -135,6 +135,10 @@ def answer(proof_id: int, body: AnswerIn, user: User = Depends(current_user),
         row.level = result["level"]
         row.proficiency = result["proficiency"]
         row.completed_at = svc.now_utc()
+        by_id = {q["id"]: q for q in row.pool}
+        missed = [by_id[s["qid"]] for s in row.served if not s.get("correct")]
+        learning.add_cards(db, user.id, "proof", missed, skill_of=lambda q: row.skill)
+        learning.log_practice(db, user.id, "proof")
         db.commit()
         readiness.record_evidence(db, user.id, "proof_assessment", row.skill, result["proficiency"],
                                   payload={"proofId": row.id, "level": result["level"]})

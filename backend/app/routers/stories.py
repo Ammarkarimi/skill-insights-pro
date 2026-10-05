@@ -12,7 +12,7 @@ from ..documents import resume_text_from_upload
 from ..models import Story, StoryDrill, User, utcnow
 from ..ratelimit import limiter
 from ..security import current_user
-from ..services import readiness
+from ..services import learning, readiness
 from ..services import stories as svc
 
 router = APIRouter(prefix="/api/stories", tags=["stories"])
@@ -196,6 +196,7 @@ def drill(body: DrillIn, response: Response, user: User = Depends(current_user),
     row = StoryDrill(user_id=user.id, answers=result["answers"], overall=result["overall"],
                      score=result["overall"]["score"])
     db.add(row)
+    learning.log_practice(db, user.id, "drill")
     db.commit()
     _record_evidence(db, user, result)
     return {"id": row.id, **result, "createdAt": row.created_at.isoformat()}

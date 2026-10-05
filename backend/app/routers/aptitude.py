@@ -14,7 +14,7 @@ from ..models import AptitudeTest, User
 from ..ratelimit import limiter
 from ..security import current_user
 from ..services import aptitude as svc
-from ..services import readiness
+from ..services import learning, readiness
 
 router = APIRouter(prefix="/api/aptitude", tags=["aptitude"])
 
@@ -42,6 +42,11 @@ def _finish(db: Session, row: AptitudeTest) -> None:
     row.score = result["score"]
     row.status = "completed"
     row.completed_at = svc.now_utc()
+    # Wrong answers go to the review queue; skipped questions are not mistakes.
+    missed = [r for r in result["review"] if not r["correct"] and r["userAnswer"]]
+    learning.add_cards(db, row.user_id, "aptitude", missed,
+                       skill_of=lambda q: svc.SECTION_NAMES[q["section"]])
+    learning.log_practice(db, row.user_id, "aptitude")
     db.commit()
     target = readiness.active_target(db, row.user_id)
     for section, bucket in result["perSection"].items():

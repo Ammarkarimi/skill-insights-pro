@@ -349,3 +349,54 @@ class StoryDrill(Base):
     overall: Mapped[dict] = mapped_column(JSON)
     score: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class LearningPlan(Base):
+    """A saved learning path, with week-by-week progress and an optional re-test."""
+
+    __tablename__ = "learning_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    assessment_session_id: Mapped[int | None] = mapped_column(ForeignKey("assessment_sessions.id"),
+                                                               nullable=True)
+    skills: Mapped[list] = mapped_column(JSON)
+    difficulty: Mapped[str] = mapped_column(String(20))
+    baseline_score: Mapped[int] = mapped_column(Integer)
+    content: Mapped[dict] = mapped_column(JSON)
+    progress: Mapped[dict] = mapped_column(JSON, default=dict)  # {weeks: [n], resources: [url]}
+    retest_session_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retest_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active|completed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ReviewCard(Base):
+    """A question the user got wrong, scheduled for spaced repetition (Leitner boxes 1-5)."""
+
+    __tablename__ = "review_cards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    qhash: Mapped[str] = mapped_column(String(64), index=True)
+    source: Mapped[str] = mapped_column(String(20))  # assessment|proof|aptitude
+    skill: Mapped[str] = mapped_column(String(120), default="")
+    question: Mapped[dict] = mapped_column(JSON)
+    box: Mapped[int] = mapped_column(Integer, default=1)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    reviews: Mapped[int] = mapped_column(Integer, default=0)
+    last_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PracticeLog(Base):
+    """Practice done on a day (UTC), by kind. Drives the streak and the weekly goal."""
+
+    __tablename__ = "practice_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)  # YYYY-MM-DD
+    kind: Mapped[str] = mapped_column(String(20))
+    count: Mapped[int] = mapped_column(Integer, default=0)

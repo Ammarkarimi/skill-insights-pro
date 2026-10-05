@@ -14,7 +14,7 @@ from ..models import CodingAttempt, CodingSession, User
 from ..ratelimit import limiter
 from ..security import current_user
 from ..services import coding as svc
-from ..services import readiness
+from ..services import learning, readiness
 
 router = APIRouter(prefix="/api/coding", tags=["coding"])
 
@@ -86,6 +86,7 @@ def submit_attempt(body: AttemptIn, user: User = Depends(current_user), db: Sess
     row = CodingAttempt(user_id=user.id, session_id=body.session_id, slug=body.slug, language=body.language,
                         code=body.code, passed=body.passed, total=body.total, late=late)
     db.add(row)
+    learning.log_practice(db, user.id, "coding")
     db.commit()
     return _attempt_view(row)
 

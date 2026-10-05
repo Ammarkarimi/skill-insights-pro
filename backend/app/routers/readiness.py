@@ -9,6 +9,7 @@ from ..db import get_db
 from ..documents import resume_text_from_upload
 from ..models import Evidence, TargetRole, User
 from ..security import current_user
+from ..services import learning
 from ..services import readiness as svc
 
 router = APIRouter(prefix="/api/readiness", tags=["readiness"])
@@ -69,6 +70,11 @@ def activate_target(target_id: int, user: User = Depends(current_user),
     return svc.target_to_dict(target)
 
 
+def _learning_state(db: Session, user_id: int) -> dict:
+    s = learning.summary(db, user_id)
+    return {"dueCards": s["dueCards"], "plan": next(iter(s["activePlans"]), None)}
+
+
 @router.get("")
 def readiness(user: User = Depends(current_user), db: Session = Depends(get_db)):
     target = svc.active_target(db, user.id)
@@ -80,6 +86,6 @@ def readiness(user: User = Depends(current_user), db: Session = Depends(get_db))
     return {
         "target": svc.target_to_dict(target),
         **computed,
-        "actions": svc.next_actions(target, computed, list(evidence)),
+        "actions": svc.next_actions(target, computed, list(evidence), learning=_learning_state(db, user.id)),
         "sourceLabels": svc.SOURCE_LABELS,
     }
