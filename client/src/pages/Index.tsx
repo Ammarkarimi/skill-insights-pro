@@ -5,6 +5,7 @@ import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
 import TodayCard from '@/components/learning/TodayCard';
+import EmailOptIn from '@/components/learning/EmailOptIn';
 import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon, KanbanSquare, Timer, BookMarked, Repeat } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -115,6 +116,7 @@ const Home: React.FC = () => {
           {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "Welcome to Skill Sphere"}
         </motion.h1>
         <TodayCard />
+        <EmailOptIn />
         <ReadinessPanel />
       </section>
 

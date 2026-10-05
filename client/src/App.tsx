@@ -22,6 +22,10 @@ const Applications = lazy(() => import("./pages/Applications"));
 const PracticeTests = lazy(() => import("./pages/PracticeTests"));
 const StoryBank = lazy(() => import("./pages/StoryBank"));
 const Learning = lazy(() => import("./pages/Learning"));
+const Settings = lazy(() => import("./pages/Settings"));
+const ForgotPassword = lazy(() => import("./pages/PasswordReset").then((m) => ({ default: m.ForgotPassword })));
+const ResetPassword = lazy(() => import("./pages/PasswordReset").then((m) => ({ default: m.ResetPassword })));
+const Unsubscribe = lazy(() => import("./pages/PasswordReset").then((m) => ({ default: m.Unsubscribe })));
 const PublicPortfolio = lazy(() => import("./pages/PublicPortfolio"));
 const PathRecommendation = lazy(() => import("./pages/PathRecommendation"));
 const JobAssessment = lazy(() => import("./pages/JobAssessment"));
@@ -45,6 +49,7 @@ const protectedRoutes: [string, React.ComponentType][] = [
   ["/practice-tests", PracticeTests],
   ["/stories", StoryBank],
   ["/learning", Learning],
+  ["/settings", Settings],
   ["/skill-assessment", SkillAssessment],
   ["/job-market", JobMarket],
   ["/resume-tips", ResumeTips],
@@ -71,6 +76,9 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<AuthPage mode="login" />} />
             <Route path="/register" element={<AuthPage mode="register" />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/refunds" element={<Refunds />} />

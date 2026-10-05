@@ -22,6 +22,7 @@ import {
   Timer,
   BookMarked,
   Repeat,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -209,9 +210,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <span className="text-xs text-gray-500 truncate" title={user?.email}>
               {user?.email}
             </span>
-            <Button variant="ghost" size="sm" onClick={handleLogout} title="Sign out">
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center">
+              <Button asChild variant="ghost" size="sm" title="Settings">
+                <Link to="/settings" onClick={isMobile ? closeMenu : undefined} aria-label="Settings">
+                  <SettingsIcon className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleLogout} title="Sign out" aria-label="Sign out">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </aside>
