@@ -28,6 +28,18 @@ DEFAULT_PACKS = [
                description="For heavy interview prep and recruiters."),
 ]
 
+# Rupee micro-packs for Razorpay (UPI, cards, netbanking). Prices are in paise, tax inclusive.
+DEFAULT_INR_PACKS = [
+    CreditPack(id="inr-mini", name="Mini", credits=15, price_cents=4900,
+               description="Try a few features."),
+    CreditPack(id="inr-starter", name="Starter", credits=40, price_cents=9900,
+               description="Try every feature a few times."),
+    CreditPack(id="inr-pro", name="Pro", credits=120, price_cents=24900,
+               description="Best for an active job search.", highlight=True),
+    CreditPack(id="inr-power", name="Power", credits=300, price_cents=49900,
+               description="For placement season."),
+]
+
 # Credits charged per action. Keep in sync with the pricing table shown in the UI
 # (the frontend reads it from /api/billing/packs).
 DEFAULT_COSTS: dict[str, int] = {
@@ -90,6 +102,11 @@ class Settings(BaseSettings):
     action_costs: dict[str, int] = Field(default_factory=lambda: dict(DEFAULT_COSTS))
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+    # Razorpay (India: UPI, cards, netbanking) in INR, alongside Stripe.
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
+    inr_credit_packs: list[CreditPack] = Field(default_factory=lambda: list(DEFAULT_INR_PACKS))
 
     # Optional live job-market data (https://developer.adzuna.com/)
     adzuna_app_id: str = ""
@@ -117,6 +134,13 @@ class Settings(BaseSettings):
             return json.loads(v)
         return v or list(DEFAULT_PACKS)
 
+    @field_validator("inr_credit_packs", mode="before")
+    @classmethod
+    def _parse_inr_packs(cls, v):
+        if isinstance(v, str) and v.strip():
+            return json.loads(v)
+        return v or list(DEFAULT_INR_PACKS)
+
     @field_validator("action_costs", mode="before")
     @classmethod
     def _merge_costs(cls, v):
@@ -131,6 +155,10 @@ class Settings(BaseSettings):
     @property
     def payments_enabled(self) -> bool:
         return bool(self.stripe_secret_key and self.stripe_webhook_secret)
+
+    @property
+    def razorpay_enabled(self) -> bool:
+        return bool(self.razorpay_key_id and self.razorpay_key_secret and self.razorpay_webhook_secret)
 
     @property
     def adzuna_enabled(self) -> bool:

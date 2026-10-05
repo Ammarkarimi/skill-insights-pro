@@ -1,4 +1,4 @@
-"""Credit packs, Stripe Checkout and the Stripe webhook."""
+"""Credit packs: Stripe Checkout (USD) and Razorpay (INR: UPI, cards, netbanking), with webhooks."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import Payment, UsageEvent, User
 from ..security import current_user
+from ..services import razorpay
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/billing", tags=["billing"])
@@ -38,6 +39,12 @@ def packs() -> dict:
         "costs": settings.action_costs,
         "freeSignupCredits": settings.free_signup_credits,
         "paymentsEnabled": settings.payments_enabled,
+        "inr": {
+            "enabled": settings.razorpay_enabled,
+            "currency": "inr",
+            "packs": [p.model_dump() for p in settings.inr_credit_packs],
+            "keyId": settings.razorpay_key_id if settings.razorpay_enabled else "",
+        },
     }
 
 
@@ -74,8 +81,26 @@ def checkout(body: CheckoutIn, user: User = Depends(current_user)) -> dict:
     return {"url": session.url}
 
 
+def grant_credits(db: Session, *, user_id: int, provider: str, provider_ref: str, pack_id: str,
+                  credits: int, amount_cents: int, currency: str) -> bool:
+    """Record a payment and add its credits. Idempotent per provider_ref; True if newly granted."""
+    if db.get(User, user_id) is None:
+        log.error("%s payment %s references unknown user %s", provider, provider_ref, user_id)
+        return False
+    try:
+        db.add(Payment(user_id=user_id, provider=provider, provider_ref=provider_ref, pack_id=pack_id,
+                       credits=credits, amount_cents=amount_cents, currency=currency))
+        db.execute(update(User).where(User.id == user_id).values(credits=User.credits + credits))
+        db.commit()
+    except IntegrityError:  # already fulfilled (webhook retry, or webhook and browser both confirmed)
+        db.rollback()
+        return False
+    log.info("Granted %s credits to user %s (%s %s)", credits, user_id, provider, provider_ref)
+    return True
+
+
 def fulfill_checkout(db: Session, session: dict) -> bool:
-    """Grant credits for a paid Checkout Session. Idempotent; returns True if newly granted."""
+    """Grant credits for a paid Stripe Checkout Session. Idempotent; True if newly granted."""
     if session.get("payment_status") != "paid":
         return False
     metadata = session.get("metadata") or {}
@@ -85,23 +110,10 @@ def fulfill_checkout(db: Session, session: dict) -> bool:
     except (KeyError, TypeError, ValueError):
         log.error("Checkout session %s has no usable metadata", session.get("id"))
         return False
-    if db.get(User, user_id) is None:
-        log.error("Checkout session %s references unknown user %s", session.get("id"), user_id)
-        return False
-    try:
-        db.add(Payment(
-            user_id=user_id, provider="stripe", provider_ref=session["id"],
-            pack_id=metadata.get("pack_id", ""), credits=credits,
-            amount_cents=int(session.get("amount_total") or 0),
-            currency=str(session.get("currency") or ""),
-        ))
-        db.execute(update(User).where(User.id == user_id).values(credits=User.credits + credits))
-        db.commit()
-    except IntegrityError:  # already fulfilled (webhook retry)
-        db.rollback()
-        return False
-    log.info("Granted %s credits to user %s (session %s)", credits, user_id, session["id"])
-    return True
+    return grant_credits(db, user_id=user_id, provider="stripe", provider_ref=session["id"],
+                         pack_id=metadata.get("pack_id", ""), credits=credits,
+                         amount_cents=int(session.get("amount_total") or 0),
+                         currency=str(session.get("currency") or ""))
 
 
 @router.post("/webhook", include_in_schema=False)
@@ -138,6 +150,104 @@ def confirm(body: ConfirmIn, user: User = Depends(current_user),
     fulfill_checkout(db, session)
     db.refresh(user)
     return {"paid": session.get("payment_status") == "paid", "credits": user.credits}
+
+
+# ---------------------------------------------------------------- Razorpay (INR)
+def _razorpay_on() -> None:
+    if not get_settings().razorpay_enabled:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
+                            "Rupee payments are not configured yet. Please try again later.")
+
+
+def fulfill_razorpay(db: Session, order: dict, payment: dict) -> bool:
+    """Grant credits for a captured payment on one of our orders. Idempotent per order id."""
+    if payment.get("status") != "captured" or payment.get("order_id") != order.get("id"):
+        return False
+    if payment.get("amount") != order.get("amount") or str(payment.get("currency")).upper() != "INR":
+        log.error("Razorpay payment %s does not match order %s", payment.get("id"), order.get("id"))
+        return False
+    notes = order.get("notes") or {}
+    pack = next((p for p in get_settings().inr_credit_packs if p.id == notes.get("pack_id")), None)
+    try:
+        user_id = int(notes["user_id"])
+        credits = pack.credits if pack else int(notes["credits"])
+    except (KeyError, TypeError, ValueError):
+        log.error("Razorpay order %s has no usable notes", order.get("id"))
+        return False
+    return grant_credits(db, user_id=user_id, provider="razorpay", provider_ref=order["id"],
+                         pack_id=notes.get("pack_id", ""), credits=credits,
+                         amount_cents=int(order.get("amount") or 0), currency="inr")
+
+
+class RazorpayOrderIn(BaseModel):
+    pack_id: str
+
+
+@router.post("/razorpay/order")
+def razorpay_order(body: RazorpayOrderIn, user: User = Depends(current_user)) -> dict:
+    _razorpay_on()
+    settings = get_settings()
+    pack = next((p for p in settings.inr_credit_packs if p.id == body.pack_id), None)
+    if pack is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown credit pack.")
+    try:
+        order = razorpay.create_order(pack, user.id)
+    except razorpay.RazorpayError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from None
+    return {
+        "orderId": order["id"], "amount": order["amount"], "currency": "INR",
+        "keyId": settings.razorpay_key_id, "name": settings.app_name,
+        "description": f"{pack.name}: {pack.credits} credits",
+        "prefill": {"name": user.name, "email": user.email},
+    }
+
+
+class RazorpayVerifyIn(BaseModel):
+    order_id: str
+    payment_id: str
+    signature: str
+
+
+@router.post("/razorpay/verify")
+def razorpay_verify(body: RazorpayVerifyIn, user: User = Depends(current_user),
+                    db: Session = Depends(get_db)) -> dict:
+    """Called by the browser after Checkout succeeds, so credits appear without waiting for the webhook."""
+    _razorpay_on()
+    if not razorpay.checkout_signature_ok(body.order_id, body.payment_id, body.signature):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Payment could not be verified.")
+    try:
+        order = razorpay.fetch_order(body.order_id)
+        payment = razorpay.fetch_payment(body.payment_id)
+    except razorpay.RazorpayError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from None
+    if (order.get("notes") or {}).get("user_id") != str(user.id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found.")
+    fulfill_razorpay(db, order, payment)
+    db.refresh(user)
+    status_ = payment.get("status")
+    return {"paid": status_ == "captured", "pending": status_ == "authorized", "credits": user.credits}
+
+
+@router.post("/razorpay/webhook", include_in_schema=False)
+async def razorpay_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
+    _razorpay_on()
+    body = await request.body()
+    if not razorpay.webhook_signature_ok(body, request.headers.get("x-razorpay-signature", "")):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid signature")
+    event = await request.json()
+    if event.get("event") in ("payment.captured", "order.paid"):
+        payload = event.get("payload") or {}
+        payment = (payload.get("payment") or {}).get("entity") or {}
+        order = (payload.get("order") or {}).get("entity")
+        if payment.get("order_id"):
+            if not order or not order.get("notes"):
+                try:
+                    order = await run_in_threadpool(razorpay.fetch_order, payment["order_id"])
+                except razorpay.RazorpayError:
+                    # A non-2xx response makes Razorpay retry the webhook later.
+                    raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Retry later") from None
+            await run_in_threadpool(fulfill_razorpay, db, order, payment)
+    return {"received": True}
 
 
 @router.get("/history")
