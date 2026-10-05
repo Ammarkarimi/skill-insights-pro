@@ -1022,7 +1022,8 @@ img {
     height: auto;
   }
   
-  section {
+  /* Scoped: this stylesheet loads app-wide, so a bare `section` rule leaked into every page. */
+  .landing-container section {
     padding: 80px 0;
   }
   

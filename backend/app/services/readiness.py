@@ -210,7 +210,7 @@ def compute_readiness(target: TargetRole, evidence: list[Evidence],
 
 
 def next_actions(target: TargetRole, computed: dict, evidence: list[Evidence],
-                 now: datetime | None = None, limit: int = 4) -> list[dict]:
+                 now: datetime | None = None, limit: int = 5) -> list[dict]:
     """Rule-based suggestions for the step that will move readiness the most."""
     now = now or datetime.now(timezone.utc)
     rows = computed["requirements"]
@@ -246,6 +246,20 @@ def next_actions(target: TargetRole, computed: dict, evidence: list[Evidence],
             "description": "An interviewer probes the claims on your resume for this role, with "
                            "follow-up questions.",
             "href": "/practice-interview?mode=deep",
+        })
+
+    # Measured but never proven: suggest a timed proof (strongest evidence, shareable).
+    unproven = [r for r in rows if r["must_have"] and r["kind"] == "skill" and r["score"] is not None
+                and not {"proof_assessment", "project"} & set(r["sources"])]
+    unproven.sort(key=lambda r: (-r["weight"], -r["score"]))
+    if unproven:
+        r = unproven[0]
+        actions.append({
+            "type": "prove",
+            "title": f"Prove {r['name']} for your portfolio",
+            "description": "A timed, adaptive skill proof gives recruiters verifiable evidence and "
+                           "counts more towards readiness.",
+            "href": "/portfolio?prove=" + quote(r["name"]),
         })
 
     weak = [r for r in rows if r["score"] is not None and r["score"] < 60]

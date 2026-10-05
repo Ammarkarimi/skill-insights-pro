@@ -161,8 +161,14 @@ def test_next_actions_rules():
           _ev("react", "resume", 50, days_ago=3), _ev("react", "deep_interview", 50, days_ago=1)]
     out = readiness.compute_readiness(target, ev, now=NOW)
     actions = readiness.next_actions(target, out, ev, now=NOW)
-    assert [a["type"] for a in actions] == ["improve"]
-    assert "React" in actions[0]["title"]
+    assert [a["type"] for a in actions] == ["prove", "improve"]
+    assert actions[0]["href"] == "/portfolio?prove=React"  # highest-weight unproven must-have
+    assert "React" in actions[1]["title"]
+
+    proven = ev + [_ev("react", "proof_assessment", 70), _ev("typescript", "project", 85)]
+    out = readiness.compute_readiness(target, proven, now=NOW)
+    # Both proven: no more "prove" action (React is still weak, so "improve" stays).
+    assert [a["type"] for a in readiness.next_actions(target, out, proven, now=NOW)] == ["improve"]
 
 
 def test_readiness_endpoint(client, user, fake_llm):
