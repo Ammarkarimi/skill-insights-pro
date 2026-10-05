@@ -93,9 +93,12 @@ The app ships as **one Docker image** that serves the API and the frontend. Any 
 | `JWT_SECRET` | `python -c "import secrets;print(secrets.token_urlsafe(48))"` |
 | `DATABASE_URL` | Postgres URL (`postgres://…` and `postgresql://…` both work) |
 | `OPENAI_API_KEY` | Set a monthly **usage limit** in the OpenAI dashboard |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Purchases are disabled until both are set |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Card purchases are disabled until both are set |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Optional: rupee packs paid with UPI, cards or netbanking (India) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SECURITY` | Needed for password reset and reminder emails. Any SMTP provider |
+| `CRON_SECRET` | Protects the hourly reminders job URL |
 
-Optional: `OPENAI_MODEL`, `OPENAI_MODEL_FAST`, `OPENAI_REASONING_EFFORT`, `CURRENCY`, `FREE_SIGNUP_CREDITS`, `CREDIT_PACKS`, `ACTION_COSTS`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_TOKEN`, `WEB_CONCURRENCY`. See [`.env.example`](.env.example).
+Optional: `OPENAI_MODEL`, `OPENAI_MODEL_FAST`, `OPENAI_REASONING_EFFORT`, `CURRENCY`, `FREE_SIGNUP_CREDITS`, `CREDIT_PACKS`, `INR_CREDIT_PACKS`, `ACTION_COSTS`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_TOKEN`, `WEB_CONCURRENCY`. See [`.env.example`](.env.example).
 
 Build-time (Docker build args): `VITE_COMPANY_NAME`, `VITE_SUPPORT_EMAIL`, shown on the legal pages and in the footer.
 
@@ -110,7 +113,7 @@ Build-time (Docker build args): `VITE_COMPANY_NAME`, `VITE_SUPPORT_EMAIL`, shown
 3. Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
 4. Test with Stripe test-mode keys and card `4242 4242 4242 4242` before switching to live keys.
 
-Prices and currency are configured in the app (`CREDIT_PACKS`, `CURRENCY`), so no Stripe products need to be created. For INR, set `CURRENCY=inr` and give `price_cents` in paise.
+Prices and currency are configured in the app (`CREDIT_PACKS`, `CURRENCY`), so no Stripe products need to be created. To sell in rupees with UPI, add Razorpay (below) and keep Stripe on your main currency.
 
 ### 4. GitHub (project ownership verification)
 Project reviews work without this, but they are marked "not verified".
@@ -119,18 +122,34 @@ Project reviews work without this, but they are marked "not verified".
 3. Copy the client ID and a new client secret into `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. The app only asks for the `read:user` scope and never stores the user's token.
 4. Recommended: set `GITHUB_TOKEN` to a fine-grained token with **no permissions** (public read only). It raises the API limit from 60 to 5,000 requests an hour.
 
-### 5. Try it locally with Docker + Postgres
+### 5. Razorpay (rupees: UPI, cards, netbanking)
+Shown next to the card packs when configured. Visitors in India see rupee prices first.
+1. In the Razorpay dashboard, create API keys (start in **Test mode**) and copy them into `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`.
+2. Under **Webhooks**, add `https://YOUR_DOMAIN/api/billing/razorpay/webhook` with the events `payment.captured` and `order.paid`, set a secret and copy it into `RAZORPAY_WEBHOOK_SECRET`.
+3. Keep **automatic capture** on (the default) so payments are captured right away.
+4. Default packs are ₹49/15, ₹99/40, ₹249/120 and ₹499/300 credits, tax inclusive; override with `INR_CREDIT_PACKS` (prices in paise). Check the margin against your OpenAI cost per credit, and register for GST before selling in India.
+
+### 6. Email (password reset and reminders)
+1. Pick any SMTP provider (Amazon SES, Postmark, SendGrid, Mailgun, Resend, or Gmail with an app password for testing) and verify your sending domain with **SPF and DKIM** so emails reach the inbox.
+2. Set `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` (for example `SkillSphere <hello@yourdomain.com>`) and `SMTP_SECURITY` (`starttls`, `ssl` for port 465, or `none`).
+3. Reminders are opt-in. Run the reminders job **every hour** (it sends at each user's chosen local hour, at most one daily nudge and a Monday summary, and never twice):
+   - **Any cron service** (Render Cron Job, GitHub Actions, cron-job.org): `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://YOUR_DOMAIN/api/internal/cron/reminders`
+   - **Or on a host with cron:** `python -m app.jobs reminders` in the backend directory.
+4. Without SMTP outside production, emails are written to the server log instead, so you can try password reset locally.
+
+### 7. Try it locally with Docker + Postgres
 ```bash
 cp .env.example .env    # fill in OPENAI_API_KEY (and Stripe test keys if you want purchases)
 docker compose up --build
 # open http://localhost:8000
 ```
 
-### 6. Before launch checklist
+### 8. Before launch checklist
 - [ ] **Rotate every key that was previously committed** to this repo (Gemini API keys, LinkedIn client secret). They remain in git history.
 - [ ] Review the Terms, Privacy and Refund pages (`client/src/pages/Legal.tsx`) for your jurisdiction.
 - [ ] Set an OpenAI usage limit and Stripe email receipts.
-- [ ] Run one real purchase in Stripe test mode end to end.
+- [ ] Run one real purchase in Stripe test mode end to end, and one UPI payment in Razorpay test mode.
+- [ ] Send yourself a test email from Settings and check it lands in the inbox, not spam.
 
 ### Scaling notes
 * The rate limiter and market cache are in-process. With several instances, move them to Redis.

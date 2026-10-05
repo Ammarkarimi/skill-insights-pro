@@ -49,7 +49,8 @@ export const Terms = () => (
     <h2>3. Credits and payment</h2>
     <p>
       Paid features consume prepaid credits. Prices and credit costs are shown before purchase on the Billing page.
-      Payments are processed by Stripe. Credits have no cash value, are non-transferable and do not expire while your
+      Payments are processed by Stripe and, for payments in Indian rupees (UPI, cards, netbanking), by Razorpay. Rupee
+      prices include applicable taxes. Credits have no cash value, are non-transferable and do not expire while your
       account is active. If a request fails, the credits for it are automatically returned.
     </p>
     <h2>4. Acceptable use</h2>
@@ -89,8 +90,8 @@ export const Privacy = () => (
         messages.
       </li>
       <li>
-        <strong>Billing data:</strong> purchase history. Card details are handled entirely by Stripe and never reach
-        our servers.
+        <strong>Billing data:</strong> purchase history. Card, UPI and bank details are handled entirely by Stripe or
+        Razorpay and never reach our servers.
       </li>
       <li>
         <strong>Usage data:</strong> which features you use and how many credits they consume.
@@ -161,6 +162,12 @@ export const Privacy = () => (
         Learning plans and their progress, the questions you got wrong (for spaced review) and the days you practised
         (for your streak) are saved to your account.
       </li>
+      <li>
+        If you turn on reminder emails, we store your choices (daily, weekly, time zone and send time) and a record of
+        which reminders we sent, so you never get the same one twice. Reminders are off until you turn them on, and
+        every one has a one-click unsubscribe. Emails are delivered through our email provider. Password reset
+        emails are sent whenever you ask for one.
+      </li>
       <li>Chat conversations and generated cover letters or outreach messages are not stored on our servers.</li>
       <li>Account and billing records are kept while your account is active and as required by law.</li>
     </ul>
@@ -191,7 +198,9 @@ export const Refunds = () => (
         <strong>Quality issues:</strong> if a result was clearly broken or unusable, contact us with details and we
         will restore the credits.
       </li>
-      <li>Refunds go back to the original payment method, usually within 5–10 business days.</li>
+      <li>
+        Refunds go back to the original payment method (card, UPI or bank account), usually within 5–10 business days.
+      </li>
     </ul>
   </Shell>
 );

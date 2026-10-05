@@ -29,7 +29,8 @@
 | 2 | **Resume Tailor** (honest rewrite, fact check, editable, DOCX/PDF export); **cover letter & outreach writer**; **salary-negotiation simulator** with a hidden, server-enforced budget | ✅ Shipped |
 | 3 | Public **Skill Proof Portfolio**: adaptive-difficulty assessments, GitHub project review, shareable evidence page | ✅ Shipped |
 | 4 | **Hiring journey toolkit** for job seekers: **application tracker** with stage checklists and prep kits; **online assessment practice** (verified aptitude tests, in-browser coding with a timed mock OA and code review); **STAR story bank** with drills; **learning loop** (saved plans, spaced review of mistakes, streaks, re-tests) | ✅ Shipped |
-| 5 | Campus and bootcamp cohorts (placement cells see cohort readiness, pooled credits); India pack (Razorpay/UPI, INR micro-packs); email reminders for streaks and interview dates | Later |
+| 5 | **India payments** (Razorpay: UPI, cards, netbanking; rupee micro-packs from ₹49); **email** over any SMTP provider: opt-in daily nudge and Monday summary, one-click unsubscribe, password reset | ✅ Shipped |
+| 6 | Campus and bootcamp cohorts (a coach sees cohort readiness and common gaps; students keep paying their own way, coaches can gift credits) | Later |
 
 Company-facing hiring tools are out of scope: they will be a separate product.
 
@@ -82,3 +83,8 @@ Company-facing hiring tools are out of scope: they will be a separate product.
 - **Coding practice:** each problem's reference solution is run against every test case in CI. Code runs in a Web Worker in the browser (5 s limit, 10 s for Python), so pass counts are self-reported and never count as evidence on their own; only the AI review score does (capped at 60 when tests fail).
 - **Story bank:** drafts use only resume facts; any figure the resume never stated is flagged. Drill questions come from a bank of 60, chosen for themes with no or weak stories.
 - **Learning loop:** wrong answers from assessments, proofs and aptitude tests become review cards in Leitner boxes (due after 1, 3, 7, 14 and 30 days; a miss sends a card back to box 1). Any practice keeps the streak alive; the weekly goal is 5 practice days.
+
+## How payments and reminders work (Phase 5)
+- **Two payment providers, one ledger:** Stripe (cards, default currency) and Razorpay (INR). Both grant credits through one idempotent function keyed by the provider's reference, so a browser confirmation plus webhook retries can never grant twice. Razorpay payments are verified three ways: the checkout signature, a server-side fetch of the order and payment, and a match on amount, currency and user.
+- **Reminders:** opt-in, at most one daily nudge, sent at the user's local hour only when something is actionable (an interview or deadline today or tomorrow, review cards due, a streak at risk), plus a Monday summary. A unique log row per user, kind and day or week is claimed before sending, so repeated or overlapping cron runs are safe. Every email has an RFC 8058 one-click unsubscribe.
+- **Account security:** only session tokens sign a user in (reset, unsubscribe and OAuth tokens carry their own purpose), and sessions are bound to the password, so a reset signs out every other device.
