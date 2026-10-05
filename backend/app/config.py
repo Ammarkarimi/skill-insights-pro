@@ -118,6 +118,16 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     github_token: str = ""
 
+    # Email over any SMTP provider (SendGrid, SES, Postmark, Mailgun, Resend, Gmail...).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""  # e.g. "SkillSphere <hello@yourdomain.com>"
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    # Shared secret for the hourly reminders job (POST /api/internal/cron/reminders).
+    cron_secret: str = ""
+
     # Limits
     max_upload_mb: int = 5
     max_job_match_resumes: int = 10
@@ -159,6 +169,10 @@ class Settings(BaseSettings):
     @property
     def razorpay_enabled(self) -> bool:
         return bool(self.razorpay_key_id and self.razorpay_key_secret and self.razorpay_webhook_secret)
+
+    @property
+    def email_enabled(self) -> bool:
+        return bool(self.smtp_host and self.smtp_from)
 
     @property
     def adzuna_enabled(self) -> bool:

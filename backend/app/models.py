@@ -4,7 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -400,3 +410,30 @@ class PracticeLog(Base):
     day: Mapped[str] = mapped_column(String(10), index=True)  # YYYY-MM-DD
     kind: Mapped[str] = mapped_column(String(20))
     count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class EmailPreference(Base):
+    """Opt-in email reminders. No row means the user has not decided yet (nothing is sent)."""
+
+    __tablename__ = "email_preferences"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    daily: Mapped[bool] = mapped_column(Boolean, default=False)
+    weekly: Mapped[bool] = mapped_column(Boolean, default=False)
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC")
+    send_hour: Mapped[int] = mapped_column(Integer, default=8)  # local hour, 0-23
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class EmailLog(Base):
+    """One email sent. The unique key stops a repeated cron run from sending the same email twice."""
+
+    __tablename__ = "email_logs"
+    __table_args__ = (UniqueConstraint("user_id", "kind", "ref", name="uq_email_once"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(30))
+    ref: Mapped[str] = mapped_column(String(80))
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
