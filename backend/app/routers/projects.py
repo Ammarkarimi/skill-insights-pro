@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..credits import charge
 from ..db import get_db
 from ..models import ProjectReview, User
@@ -60,6 +61,8 @@ def review(body: ReviewIn, response: Response, user: User = Depends(current_user
 
     acct = account_for(db, user.id)
     owned = github.ownership(snapshot, acct.login if acct else None)
+    if acct is None and not get_settings().github_oauth_enabled:
+        owned["detail"] = "Ownership verification is not available on this site."
     target = readiness.active_target(db, user.id)
     requirement_names = [r["name"] for r in target.requirements] if target else []
 

@@ -4,10 +4,16 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
-import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
+import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const features = [
+  {
+    title: "Skill Portfolio",
+    description: "Prove skills with timed adaptive tests and AI-reviewed GitHub projects, then share a verified portfolio page.",
+    icon: <BadgeCheck size={24} />,
+    path: "/portfolio",
+  },
   {
     title: "Skill Assessment",
     description: "Take an adaptive test generated from your resume's tech stack, with explanations and a personalised learning path.",

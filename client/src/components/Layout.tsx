@@ -17,6 +17,7 @@ import {
   FilePen,
   Mail,
   HandCoins,
+  BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -49,6 +50,7 @@ const NavItem = ({ to, label, icon, isActive, onClick, badge }: NavItemProps) =>
 
 const navItems = [
   { path: "/home", label: "Dashboard", icon: <Home size={20} /> },
+  { path: "/portfolio", label: "Skill Portfolio", icon: <BadgeCheck size={20} /> },
   { path: "/skill-assessment", label: "Skill Assessment", icon: <BookOpen size={20} /> },
   { path: "/resume-tips", label: "Resume Analyzer & Tips", icon: <FileText size={20} /> },
   { path: "/resume-tailor", label: "Resume Tailor", icon: <FilePen size={20} /> },
