@@ -281,3 +281,37 @@ class AptitudeTest(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CodingSession(Base):
+    """A timed mock online assessment: two problems against one deadline."""
+
+    __tablename__ = "coding_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    level: Mapped[str] = mapped_column(String(20))
+    slugs: Mapped[list] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active|completed
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CodingAttempt(Base):
+    """A solution the user ran in their browser. Pass counts are self-reported by the client."""
+
+    __tablename__ = "coding_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    session_id: Mapped[int | None] = mapped_column(ForeignKey("coding_sessions.id"), nullable=True)
+    slug: Mapped[str] = mapped_column(String(80), index=True)
+    language: Mapped[str] = mapped_column(String(20))
+    code: Mapped[str] = mapped_column(Text)
+    passed: Mapped[int] = mapped_column(Integer)
+    total: Mapped[int] = mapped_column(Integer)
+    late: Mapped[bool] = mapped_column(Boolean, default=False)
+    review: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

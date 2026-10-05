@@ -77,6 +77,7 @@ def fake_llm(monkeypatch):
         assessment,
         career,
         chat,
+        coding,
         deep_interview,
         interview,
         job_match,
@@ -91,7 +92,7 @@ def fake_llm(monkeypatch):
     )
 
     fake = FakeLLM()
-    for module in (applications, aptitude, assessment, career, chat, deep_interview, interview, job_match,
-                   letters, market, negotiation, project_review, proof, readiness, resume, tailor):
+    for module in (applications, aptitude, assessment, career, chat, coding, deep_interview, interview,
+                   job_match, letters, market, negotiation, project_review, proof, readiness, resume, tailor):
         monkeypatch.setattr(module, "generate", fake)
     return fake

@@ -52,6 +52,7 @@ DEFAULT_COSTS: dict[str, int] = {
     "project_review": 5,
     "prep_kit": 2,
     "aptitude_test": 2,
+    "code_review": 1,
 }
 
 

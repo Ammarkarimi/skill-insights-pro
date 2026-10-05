@@ -23,6 +23,7 @@ from .routers import (
     billing,
     career,
     chat,
+    coding,
     deep_interview,
     github,
     interview,
@@ -89,7 +90,7 @@ def create_app() -> FastAPI:
 
     for module in (auth, billing, resume, assessment, interview, job_match, career, chat, market,
                    readiness, deep_interview, tailor, letters, negotiation, proof, github,
-                   projects, portfolio, applications, aptitude):
+                   projects, portfolio, applications, aptitude, coding):
         app.include_router(module.router)
 
     @app.get("/api/health", include_in_schema=False)
