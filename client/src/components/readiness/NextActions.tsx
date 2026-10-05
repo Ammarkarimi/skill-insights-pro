@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, BadgeCheck, BookOpen, FileText, MessageSquare, TrendingUp } from "lucide-react";
+import { ArrowRight, BadgeCheck, BookOpen, CalendarCheck, FileText, MessageSquare, Repeat, TrendingUp } from "lucide-react";
 import { NextAction } from "@/lib/readiness";
 
 const ICONS: Record<NextAction["type"], React.ReactNode> = {
@@ -9,6 +9,8 @@ const ICONS: Record<NextAction["type"], React.ReactNode> = {
   deep_interview: <MessageSquare className="h-5 w-5 text-primary" />,
   improve: <TrendingUp className="h-5 w-5 text-primary" />,
   prove: <BadgeCheck className="h-5 w-5 text-primary" />,
+  review: <Repeat className="h-5 w-5 text-primary" />,
+  plan: <CalendarCheck className="h-5 w-5 text-primary" />,
 };
 
 const NextActions: React.FC<{ actions: NextAction[] }> = ({ actions }) => {

@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
-import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon, KanbanSquare, Timer, BookMarked } from 'lucide-react';
+import TodayCard from '@/components/learning/TodayCard';
+import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon, KanbanSquare, Timer, BookMarked, Repeat } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const features = [
@@ -19,6 +20,12 @@ const features = [
     description: "Prove skills with timed adaptive tests and AI-reviewed GitHub projects, then share a verified portfolio page.",
     icon: <BadgeCheck size={24} />,
     path: "/portfolio",
+  },
+  {
+    title: "Learning",
+    description: "Track your learning plans week by week, review past mistakes in two minutes a day, and re-test to prove the gain.",
+    icon: <Repeat size={24} />,
+    path: "/learning",
   },
   {
     title: "Practice Tests",
@@ -107,6 +114,7 @@ const Home: React.FC = () => {
         >
           {user?.name ? `Welcome, ${user.name.split(" ")[0]}` : "Welcome to Skill Sphere"}
         </motion.h1>
+        <TodayCard />
         <ReadinessPanel />
       </section>
 

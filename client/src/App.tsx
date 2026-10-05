@@ -21,6 +21,7 @@ const SkillPortfolio = lazy(() => import("./pages/SkillPortfolio"));
 const Applications = lazy(() => import("./pages/Applications"));
 const PracticeTests = lazy(() => import("./pages/PracticeTests"));
 const StoryBank = lazy(() => import("./pages/StoryBank"));
+const Learning = lazy(() => import("./pages/Learning"));
 const PublicPortfolio = lazy(() => import("./pages/PublicPortfolio"));
 const PathRecommendation = lazy(() => import("./pages/PathRecommendation"));
 const JobAssessment = lazy(() => import("./pages/JobAssessment"));
@@ -43,6 +44,7 @@ const protectedRoutes: [string, React.ComponentType][] = [
   ["/applications", Applications],
   ["/practice-tests", PracticeTests],
   ["/stories", StoryBank],
+  ["/learning", Learning],
   ["/skill-assessment", SkillAssessment],
   ["/job-market", JobMarket],
   ["/resume-tips", ResumeTips],

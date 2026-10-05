@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import FileUpload from "@/components/FileUpload";
 import CostNote from "@/components/CostNote";
@@ -78,6 +78,7 @@ interface LearningPath {
   strengths: string[];
   focusAreas: { topic: string; why: string; priority: string }[];
   learningPath: Resource[];
+  id?: number;
   weeklyPlan: { week: number; goal: string; activities: string[] }[];
   capstoneProject: string;
 }
@@ -122,6 +123,9 @@ const SkillAssessment: React.FC = () => {
       setTechStacks(prefill.map((name) => ({ name, selected: true })));
       setStage(Stage.Skills);
     }
+    // Re-tests from the Learning page come with the original difficulty.
+    const level = searchParams.get("difficulty");
+    if (level && ["beginner", "intermediate", "advanced"].includes(level)) setDifficulty(level);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -206,6 +210,18 @@ const SkillAssessment: React.FC = () => {
       setScore(data.score);
       setStage(Stage.Results);
       invalidateReadiness();
+      const planId = searchParams.get("plan");
+      if (planId && /^\d+$/.test(planId)) {
+        api
+          .post<{ baselineScore: number; retestScore: number }>(`/api/learning/plans/${planId}/retest`, { session_id: sessionId })
+          .then((r) =>
+            toast({
+              title: `Re-test saved: ${r.data.baselineScore}% → ${r.data.retestScore}%`,
+              description: r.data.retestScore > r.data.baselineScore ? "Your plan is paying off." : "Keep going: review your mistakes on the Learning page.",
+            }),
+          )
+          .catch(() => undefined);
+      }
     } catch (err) {
       fail("Could not submit your answers", err);
     } finally {
@@ -599,6 +615,16 @@ const SkillAssessment: React.FC = () => {
 
         {stage === Stage.Path && path && (
           <div className="space-y-6">
+            {path.id && (
+              <Alert>
+                <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                  <span>Saved to your Learning page: tick off each week, review your mistakes daily, then re-test to see the gain.</span>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/learning">Open Learning</Link>
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
             <Card>
               <CardHeader>
                 <CardTitle className="text-xl sm:text-2xl">{path.title}</CardTitle>

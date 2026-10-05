@@ -27,7 +27,7 @@ export interface RequirementScore extends Omit<Requirement, "aliases"> {
 }
 
 export interface NextAction {
-  type: "assessment" | "resume" | "deep_interview" | "improve" | "prove";
+  type: "assessment" | "resume" | "deep_interview" | "improve" | "prove" | "review" | "plan";
   title: string;
   description: string;
   href: string;

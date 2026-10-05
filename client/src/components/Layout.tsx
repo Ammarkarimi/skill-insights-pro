@@ -21,6 +21,7 @@ import {
   KanbanSquare,
   Timer,
   BookMarked,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -69,6 +70,7 @@ const navSections: { title: string; items: NavLink[] }[] = [
   {
     title: "Build skills",
     items: [
+      { path: "/learning", label: "Learning", icon: <Repeat size={20} /> },
       { path: "/skill-assessment", label: "Skill Assessment", icon: <BookOpen size={20} /> },
       { path: "/practice-tests", label: "Practice Tests", icon: <Timer size={20} /> },
       { path: "/portfolio", label: "Skill Portfolio", icon: <BadgeCheck size={20} /> },
