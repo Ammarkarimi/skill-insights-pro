@@ -138,6 +138,8 @@ const CodeWorkspace: React.FC<Props> = ({ slug, sessionId, onAttempt }) => {
   };
 
   const runAll = async () => {
+    setRun(null); // never leave the previous run's result on screen while this one is pending
+    setAttempt(null);
     try {
       if (language === "python" && !pythonLoaded()) {
         setBusy("loading-python");
@@ -159,7 +161,8 @@ const CodeWorkspace: React.FC<Props> = ({ slug, sessionId, onAttempt }) => {
       onAttempt?.(data);
       if (data.late) toast({ title: "Submitted after the deadline", description: "This run does not count towards the assessment." });
     } catch (err) {
-      toast({ title: "Could not run your code", description: err instanceof Error ? err.message : apiErrorMessage(err), variant: "destructive" });
+      // Show the reason in the results panel, where it stays, not only in a passing toast.
+      setRun({ results: [], logs: [], error: err instanceof Error ? err.message : apiErrorMessage(err) });
     } finally {
       setBusy("");
     }

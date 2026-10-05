@@ -18,6 +18,12 @@ export const ACTION_LABELS: Record<string, string> = {
   negotiation_report: "Salary negotiation debrief",
   proof_assessment: "Skill proof (timed, adaptive test)",
   project_review: "GitHub project review",
+  prep_kit: "Interview prep kit for an application",
+  aptitude_test: "Aptitude test with AI-written questions",
+  code_review: "Interviewer-style code review",
+  story_draft: "STAR stories drafted from your resume",
+  story_critique: "STAR story critique",
+  story_drill: "Behavioral drill feedback",
 };
 
 export const COMPANY_NAME = import.meta.env.VITE_COMPANY_NAME || "Skill Sphere";

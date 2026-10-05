@@ -22,6 +22,9 @@
     HandCoins,
     Mail,
     BadgeCheck,
+    KanbanSquare,
+    Timer,
+    BookMarked,
   } from "lucide-react"
   
   const Landing = () => {
@@ -82,6 +85,24 @@
         title: "Skill Portfolio",
         description: "Prove skills with timed adaptive tests and reviewed GitHub projects, then share one verified link with recruiters",
         route: "/portfolio",
+      },
+      {
+        icon: <KanbanSquare className="feature-icon" />,
+        title: "Application Tracker",
+        description: "Track every job by stage, with a prep checklist and an AI interview prep kit for each one",
+        route: "/applications",
+      },
+      {
+        icon: <Timer className="feature-icon" />,
+        title: "Practice Tests",
+        description: "Timed aptitude tests and coding problems that run in your browser, like a real online assessment",
+        route: "/practice-tests",
+      },
+      {
+        icon: <BookMarked className="feature-icon" />,
+        title: "Story Bank",
+        description: "Turn your resume into STAR stories for behavioral interviews, then drill them out loud",
+        route: "/stories",
       },
       {
         icon: <FilePen className="feature-icon" />,
@@ -321,6 +342,12 @@
               <span>Negotiation practice: {pricing.costs.negotiation_start + pricing.costs.negotiation_report} credits</span>
               <span>Skill proof test: {pricing.costs.proof_assessment} credits</span>
               <span>GitHub project review: {pricing.costs.project_review} credits</span>
+              <span>Interview prep kit: {pricing.costs.prep_kit} credits</span>
+              <span>Aptitude test: {pricing.costs.aptitude_test} credits (quantitative is free)</span>
+              <span>Code review: {pricing.costs.code_review} credit (running code is free)</span>
+              <span>STAR stories from resume: {pricing.costs.story_draft} credits</span>
+              <span>Behavioral drill feedback: {pricing.costs.story_drill} credits</span>
+              <span>Application tracker, daily review: free</span>
               <span>Job match: {pricing.costs.job_match_per_resume} credits/resume</span>
               <span>Chat message: {pricing.costs.chat_message} credit</span>
             </div>

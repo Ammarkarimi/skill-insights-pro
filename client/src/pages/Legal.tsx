@@ -143,6 +143,24 @@ export const Privacy = () => (
         GitHub username. It never shows your email. It is hidden from search engines unless you allow indexing, and
         unpublishing it removes public access immediately.
       </li>
+      <li>
+        Job applications you track (company, role, job description, link, dates, notes, contact and the prep kit) are
+        saved to your account until you delete them.
+      </li>
+      <li>
+        Aptitude tests (questions, your answers and when you gave them) and coding attempts (the code you ran, the
+        language, how many tests passed and any review) are saved so you can see your history. Code runs in your
+        browser; it is only sent to us when you run tests or ask for a review. Python runs on Pyodide, which your
+        browser downloads from the jsDelivr CDN the first time you use it.
+      </li>
+      <li>
+        STAR stories you draft or write, their critiques, and your behavioral drill answers and feedback are saved to
+        your account. Drafting sends your resume to our AI provider but the resume itself is not stored.
+      </li>
+      <li>
+        Learning plans and their progress, the questions you got wrong (for spaced review) and the days you practised
+        (for your streak) are saved to your account.
+      </li>
       <li>Chat conversations and generated cover letters or outreach messages are not stored on our servers.</li>
       <li>Account and billing records are kept while your account is active and as required by law.</li>
     </ul>

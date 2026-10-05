@@ -29,6 +29,7 @@ export interface RunResult {
 const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
 const RUN_TIMEOUT_MS = { javascript: 5000, python: 10000 };
 const LOAD_TIMEOUT_MS = 90000;
+const LOAD_FAILED = "Python could not be downloaded (about 10 MB). Check your connection and run again. JavaScript works without the download.";
 
 const JS_WORKER = `
 self.onmessage = (e) => {
@@ -87,10 +88,14 @@ const PY_WORKER = `
 importScripts(${JSON.stringify(PYODIDE_URL + "pyodide.js")});
 const ready = loadPyodide({ indexURL: ${JSON.stringify(PYODIDE_URL)} }).then(
   (py) => { postMessage({ type: "ready" }); return py; },
-  (err) => { postMessage({ type: "loadError", error: String(err) }); throw err; },
+  (err) => { postMessage({ type: "loadError", error: String(err) }); return null; },
 );
+// A failed download inside Pyodide can surface as an unhandled rejection rather than a rejected
+// loadPyodide promise; report it so the page fails fast instead of waiting for the load timeout.
+self.addEventListener("unhandledrejection", (e) => postMessage({ type: "loadError", error: String(e.reason) }));
 self.onmessage = async (e) => {
   const py = await ready;
+  if (!py) return;
   py.globals.set("__payload", JSON.stringify(e.data));
   try {
     const out = JSON.parse(py.runPython(${JSON.stringify(PY_HARNESS)}));
@@ -125,9 +130,9 @@ export function loadPython(): Promise<Worker> {
       if (e.data.type === "ready") {
         clearTimeout(timer);
         resolve(worker);
-      } else if (e.data.type === "loadError") fail("Python could not be loaded in this browser. JavaScript still works.");
+      } else if (e.data.type === "loadError") fail(LOAD_FAILED);
     };
-    worker.onerror = () => fail("Python could not be loaded in this browser. JavaScript still works.");
+    worker.onerror = () => fail(LOAD_FAILED);
   });
   return pyReady;
 }
