@@ -20,6 +20,7 @@ import {
   BadgeCheck,
   KanbanSquare,
   Timer,
+  BookMarked,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -86,6 +87,7 @@ const navSections: { title: string; items: NavLink[] }[] = [
     title: "Interview",
     items: [
       { path: "/practice-interview", label: "Practice Interview", icon: <VideoIcon size={20} /> },
+      { path: "/stories", label: "Story Bank", icon: <BookMarked size={20} /> },
       { path: "/negotiation", label: "Salary Negotiation", icon: <HandCoins size={20} /> },
     ],
   },

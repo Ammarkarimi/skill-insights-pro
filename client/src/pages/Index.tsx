@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import FeatureCard from '@/components/FeatureCard';
 import ReadinessPanel from '@/components/readiness/ReadinessPanel';
-import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon, KanbanSquare, Timer } from 'lucide-react';
+import { BookOpen, BarChart, FileText, FilePen, Mail, HandCoins, BadgeCheck, GraduationCap, BriefcaseBusiness, BotIcon, UsersIcon, KanbanSquare, Timer, BookMarked } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const features = [
@@ -55,6 +55,12 @@ const features = [
     description: "Quick practice, or 'Defend my resume': an interviewer probes your resume claims with follow-ups and verifies each one.",
     icon: <UsersIcon size={24} />,
     path: "/practice-interview",
+  },
+  {
+    title: "Story Bank",
+    description: "Turn your resume into STAR stories for behavioral interviews, get them critiqued, and drill them out loud.",
+    icon: <BookMarked size={24} />,
+    path: "/stories",
   },
   {
     title: "Salary Negotiation",
