@@ -88,11 +88,13 @@ def fake_llm(monkeypatch):
         proof,
         readiness,
         resume,
+        stories,
         tailor,
     )
 
     fake = FakeLLM()
     for module in (applications, aptitude, assessment, career, chat, coding, deep_interview, interview,
-                   job_match, letters, market, negotiation, project_review, proof, readiness, resume, tailor):
+                   job_match, letters, market, negotiation, project_review, proof, readiness, resume, stories,
+                   tailor):
         monkeypatch.setattr(module, "generate", fake)
     return fake
