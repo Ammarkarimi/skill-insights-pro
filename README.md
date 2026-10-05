@@ -12,6 +12,7 @@ The app is built to be hosted as a paid product. Users sign up, get free credits
 |---|---|---|
 | **Readiness Score** ⭐ | Set a target role (title, job description, optional resume) to get a weighted requirement scorecard. Every assessment, resume analysis and interview adds evidence. Shows a 0–100 readiness score, coverage, trend and next-best actions. Scoring itself is free | 2 per role |
 | **Defend Your Resume** ⭐ | An adaptive interview that probes the claims on your resume for the target role with up to 2 follow-ups each. Verdicts: supported, weak or unsupported, with resume fixes, model answers and in-browser delivery stats (pace, fillers, pauses) | 3 + 3 |
+| **Skill Portfolio** ⭐ | Proof that recruiters can trust. **Skill proofs** are 8-question adaptive tests (difficulty rises and falls with each answer, 90 s per question, graded on the server, one retake a day) that output a level. **Project reviews** read a public GitHub repo at a pinned commit and score it on a hiring rubric, with ownership verified by "Connect GitHub". A **public page** `/p/<slug>` (link-only and noindex by default) and embeddable SVG skill badges | 3 per proof, 5 per review |
 | **Resume Tailor** ⭐ | Rewrites your resume for a job (or your target role) without inventing facts. Missing metrics become [placeholders], and a fact check flags any employer, school or figure not in the original. Editable, with free ATS-safe Word/PDF downloads | 4 |
 | **Salary Negotiation** ⭐ | Role-play with an AI recruiter who has a hidden budget (enforced server-side). The debrief reveals the budget, how much of the room you captured, technique scores and ready-to-use scripts | 2 + 2 |
 | **Cover Letters & Outreach** | Cover letter, recruiter email, LinkedIn note (≤300 chars), referral request or thank-you, built from your real resume, with free Word export | 1 |
@@ -90,7 +91,7 @@ The app ships as **one Docker image** that serves the API and the frontend. Any 
 | `OPENAI_API_KEY` | Set a monthly **usage limit** in the OpenAI dashboard |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Purchases are disabled until both are set |
 
-Optional: `OPENAI_MODEL`, `OPENAI_MODEL_FAST`, `OPENAI_REASONING_EFFORT`, `CURRENCY`, `FREE_SIGNUP_CREDITS`, `CREDIT_PACKS`, `ACTION_COSTS`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `WEB_CONCURRENCY`. See [`.env.example`](.env.example).
+Optional: `OPENAI_MODEL`, `OPENAI_MODEL_FAST`, `OPENAI_REASONING_EFFORT`, `CURRENCY`, `FREE_SIGNUP_CREDITS`, `CREDIT_PACKS`, `ACTION_COSTS`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_TOKEN`, `WEB_CONCURRENCY`. See [`.env.example`](.env.example).
 
 Build-time (Docker build args): `VITE_COMPANY_NAME`, `VITE_SUPPORT_EMAIL`, shown on the legal pages and in the footer.
 
@@ -107,14 +108,21 @@ Build-time (Docker build args): `VITE_COMPANY_NAME`, `VITE_SUPPORT_EMAIL`, shown
 
 Prices and currency are configured in the app (`CREDIT_PACKS`, `CURRENCY`), so no Stripe products need to be created. For INR, set `CURRENCY=inr` and give `price_cents` in paise.
 
-### 4. Try it locally with Docker + Postgres
+### 4. GitHub (project ownership verification)
+Project reviews work without this, but they are marked "not verified".
+1. Go to GitHub **Settings → Developer settings → OAuth Apps → New OAuth App**.
+2. Set the **Authorization callback URL** to `https://YOUR_DOMAIN/api/github/callback`.
+3. Copy the client ID and a new client secret into `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. The app only asks for the `read:user` scope and never stores the user's token.
+4. Recommended: set `GITHUB_TOKEN` to a fine-grained token with **no permissions** (public read only). It raises the API limit from 60 to 5,000 requests an hour.
+
+### 5. Try it locally with Docker + Postgres
 ```bash
 cp .env.example .env    # fill in OPENAI_API_KEY (and Stripe test keys if you want purchases)
 docker compose up --build
 # open http://localhost:8000
 ```
 
-### 5. Before launch checklist
+### 6. Before launch checklist
 - [ ] **Rotate every key that was previously committed** to this repo (Gemini API keys, LinkedIn client secret). They remain in git history.
 - [ ] Review the Terms, Privacy and Refund pages (`client/src/pages/Legal.tsx`) for your jurisdiction.
 - [ ] Set an OpenAI usage limit and Stripe email receipts.

@@ -27,7 +27,7 @@
 |---|---|---|
 | 1 | Target-role **Readiness Score** (requirement scorecard, evidence from every feature, trend, next actions); **Defend Your Resume** adaptive interview with claim verification and delivery analytics; server-graded assessments | ✅ Shipped |
 | 2 | **Resume Tailor** (honest rewrite, fact check, editable, DOCX/PDF export); **cover letter & outreach writer**; **salary-negotiation simulator** with a hidden, server-enforced budget | ✅ Shipped |
-| 3 | Public **Skill Proof Portfolio**: adaptive-difficulty assessments, GitHub project review, shareable evidence page | Planned |
+| 3 | Public **Skill Proof Portfolio**: adaptive-difficulty assessments, GitHub project review, shareable evidence page | ✅ Shipped |
 | 4 | Recruiter/campus (B2B) mode; India pack (aptitude tests, Razorpay/UPI, INR micro-packs) if the market focus changes | Later |
 
 ## How readiness is scored (Phase 1)
@@ -36,6 +36,8 @@
 
   | Source | Weight |
   |---|---|
+  | Skill proof (adaptive test) | 1.2 |
+  | Project review | 1.2 |
   | Skill assessment | 1.0 |
   | Deep interview | 1.0 |
   | Practice interview | 0.7 |
@@ -45,3 +47,24 @@
 - **Difficulty scaling:** assessment results are scaled by level (beginner ×0.7, intermediate ×0.9, advanced ×1.0).
 - **Overall:** the weighted average across all requirements. **Unmeasured requirements count as 0**, so readiness has to be proven; coverage is shown alongside.
 - **Cost:** scoring and next actions are deterministic, with no AI cost. Only the requirement extraction at setup uses the LLM.
+
+## How proof works (Phase 3)
+- **Skill proof:**
+  - One AI call builds a pool of 15 questions, 5 per tier (beginner, intermediate, advanced).
+  - The test serves 8 of them, starting at intermediate. A correct answer moves up a tier and a wrong one moves down.
+  - Each question has 90 s (plus 15 s grace) on the server clock. Late answers count as wrong, and the answer key is only revealed after the last question.
+  - **Proficiency** = 100 × mean(tier weight if correct), with weights 0.6 / 0.85 / 1.0.
+  - **Level:**
+    - Advanced: ≥2 correct at the advanced tier.
+    - Intermediate: ≥2 correct at intermediate or above.
+    - Beginner: ≥2 correct.
+    - Otherwise Foundational.
+  - One attempt per skill per 24 h. The public page shows the attempt count.
+- **Project review:**
+  - Reads a public repo at its default-branch head commit: README, manifests, CI, and up to 12 representative source files (about 80k characters), never stored.
+  - Scores it on 6 rubric dimensions and maps the demonstrated skills to the target role.
+  - Ownership:
+    - **Owner:** the connected GitHub login owns the repo.
+    - **Contributor:** the connected login has commits on the repo, shown with its commit share.
+    - **Not verified:** neither applies.
+- **Public portfolio:** private until published, and link-only (noindex) unless the owner allows indexing. It never shows email, and it hides private coaching (improvements, talking points). Badges are at `/api/public/portfolio/<slug>/badge.svg?skill=<skill>`.

@@ -16,6 +16,8 @@ export const ACTION_LABELS: Record<string, string> = {
   letter: "Cover letter or outreach message",
   negotiation_start: "Salary negotiation practice",
   negotiation_report: "Salary negotiation debrief",
+  proof_assessment: "Skill proof (timed, adaptive test)",
+  project_review: "GitHub project review",
 };
 
 export const COMPANY_NAME = import.meta.env.VITE_COMPANY_NAME || "Skill Sphere";

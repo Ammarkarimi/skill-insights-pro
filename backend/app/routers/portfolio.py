@@ -243,7 +243,9 @@ def share_page(db: Session, path: str, index_html: str) -> tuple[str, dict] | No
         return None
     p = db.scalar(select(Portfolio).where(Portfolio.slug == match.group(1), Portfolio.is_published))
     if p is None:
-        return None
+        # Unknown or unpublished: tell crawlers to drop any copy they indexed while it was public.
+        page = index_html.replace("</head>", '<meta name="robots" content="noindex, nofollow"/></head>', 1)
+        return page, {"Cache-Control": "no-cache", **NOINDEX}
     name = p.display_name or "SkillSphere member"
     title = html.escape(f"{name}: verified skills | SkillSphere")
     desc = html.escape(p.headline

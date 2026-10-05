@@ -123,6 +123,26 @@ export const Privacy = () => (
         your account so you can edit and download them. You can delete them at any time from the Resume Tailor page.
       </li>
       <li>Salary-negotiation practice sessions (your messages and the debrief) are saved so you can review them.</li>
+      <li>
+        Skill proof tests (questions, your answers, timings, how often you left the test tab, and the resulting level)
+        are saved to your account. Retakes are limited to one per skill per day.
+      </li>
+      <li>
+        If you connect GitHub, we store only your GitHub user id, username, display name and avatar URL. We ask for
+        read-only access to your public profile, and the access token is used once and never stored. You can
+        disconnect at any time from the Skill Portfolio page.
+      </li>
+      <li>
+        For project reviews we read the public repository through GitHub's API. We store the review, the repository
+        name, the commit reviewed, the list of files read and whether you own or contributed to it. We do not store
+        the code.
+      </li>
+      <li>
+        Your portfolio is private until you publish it. Once published, anyone with the link can see your display
+        name, headline, bio, the proofs and project reviews you chose and, if you choose, your readiness score and
+        GitHub username. It never shows your email. It is hidden from search engines unless you allow indexing, and
+        unpublishing it removes public access immediately.
+      </li>
       <li>Chat conversations and generated cover letters or outreach messages are not stored on our servers.</li>
       <li>Account and billing records are kept while your account is active and as required by law.</li>
     </ul>

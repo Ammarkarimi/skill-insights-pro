@@ -105,5 +105,6 @@ def test_share_page_injects_meta(client, user):
         assert page.count("<title>") == 1 and "Ada &quot;&lt;b&gt;&quot;: verified skills" in page
         assert 'content="old"' not in page and 'property="og:url"' in page
         assert 'name="robots" content="noindex, nofollow"' in page and headers["X-Robots-Tag"]
-        assert share_page(db, "p/unknown-slug", index) is None
+        missing, missing_headers = share_page(db, "p/unknown-slug", index)
+        assert 'name="robots" content="noindex' in missing and "noindex" in missing_headers["X-Robots-Tag"]
         assert share_page(db, "home", index) is None

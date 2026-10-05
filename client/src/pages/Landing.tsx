@@ -21,6 +21,7 @@
     FilePen,
     HandCoins,
     Mail,
+    BadgeCheck,
   } from "lucide-react"
   
   const Landing = () => {
@@ -75,6 +76,12 @@
         title: "Defend Your Resume",
         description: "An AI interviewer probes the claims on your resume with follow-up questions and tells you which ones hold up",
         route: "/practice-interview?mode=deep",
+      },
+      {
+        icon: <BadgeCheck className="feature-icon" />,
+        title: "Skill Portfolio",
+        description: "Prove skills with timed adaptive tests and reviewed GitHub projects, then share one verified link with recruiters",
+        route: "/portfolio",
       },
       {
         icon: <FilePen className="feature-icon" />,
@@ -312,6 +319,8 @@
               <span>Tailored resume + Word/PDF: {pricing.costs.resume_tailor} credits</span>
               <span>Cover letter or outreach: {pricing.costs.letter} credit</span>
               <span>Negotiation practice: {pricing.costs.negotiation_start + pricing.costs.negotiation_report} credits</span>
+              <span>Skill proof test: {pricing.costs.proof_assessment} credits</span>
+              <span>GitHub project review: {pricing.costs.project_review} credits</span>
               <span>Job match: {pricing.costs.job_match_per_resume} credits/resume</span>
               <span>Chat message: {pricing.costs.chat_message} credit</span>
             </div>
