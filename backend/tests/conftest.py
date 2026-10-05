@@ -73,6 +73,7 @@ class FakeLLM:
 def fake_llm(monkeypatch):
     from app.services import (
         applications,
+        aptitude,
         assessment,
         career,
         chat,
@@ -90,7 +91,7 @@ def fake_llm(monkeypatch):
     )
 
     fake = FakeLLM()
-    for module in (applications, assessment, career, chat, deep_interview, interview, job_match, letters,
-                   market, negotiation, project_review, proof, readiness, resume, tailor):
+    for module in (applications, aptitude, assessment, career, chat, deep_interview, interview, job_match,
+                   letters, market, negotiation, project_review, proof, readiness, resume, tailor):
         monkeypatch.setattr(module, "generate", fake)
     return fake

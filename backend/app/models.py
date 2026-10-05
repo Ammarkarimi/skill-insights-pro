@@ -262,3 +262,22 @@ class Application(Base):
     prep: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AptitudeTest(Base):
+    """A timed aptitude test. Answers are saved one by one so the server enforces the deadline."""
+
+    __tablename__ = "aptitude_tests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    section: Mapped[str] = mapped_column(String(20))
+    difficulty: Mapped[str] = mapped_column(String(20))
+    questions: Mapped[list] = mapped_column(JSON)
+    answers: Mapped[dict] = mapped_column(JSON, default=dict)  # {qid: {answer, at}}
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active|completed
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
