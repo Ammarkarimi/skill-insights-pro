@@ -16,24 +16,18 @@ router = APIRouter(prefix="/api/readiness", tags=["readiness"])
 MAX_TARGETS = 20
 
 
-@router.post("/targets", status_code=201)
-def create_target(response: Response,
-                  title: str = Form(..., min_length=2, max_length=120),
-                  job_description: str = Form(default="", max_length=12000),
-                  resume: UploadFile | None = File(default=None),
-                  user: User = Depends(current_user), db: Session = Depends(get_db)):
+def create_target_for(db: Session, user: User, response: Response, title: str, job_description: str,
+                      resume_text: str) -> TargetRole:
+    """Charge, extract the requirement map, record baseline evidence and make it the active target."""
     count = len(db.scalars(select(TargetRole.id).where(TargetRole.user_id == user.id)).all())
     if count >= MAX_TARGETS:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             f"You can keep up to {MAX_TARGETS} target roles.")
-    # Validate the upload before charging.
-    resume_text = resume_text_from_upload(resume) if resume is not None and resume.filename else ""
-
     with charge(db, user, "target_role_setup", response):
         summary, requirements, baseline = svc.extract_requirements(
-            title.strip(), job_description.strip(), resume_text, user.id)
+            title, job_description, resume_text, user.id)
 
-    target = TargetRole(user_id=user.id, title=title.strip(), job_description=job_description.strip(),
+    target = TargetRole(user_id=user.id, title=title, job_description=job_description,
                         summary=summary, requirements=requirements)
     db.add(target)
     db.flush()
@@ -43,6 +37,18 @@ def create_target(response: Response,
         svc.record_evidence(db, user.id, "baseline", names[key], svc.BASELINE_SCORES[info["status"]],
                             payload=info, target=target, requirement_key=key, commit=False)
     db.commit()
+    return target
+
+
+@router.post("/targets", status_code=201)
+def create_target(response: Response,
+                  title: str = Form(..., min_length=2, max_length=120),
+                  job_description: str = Form(default="", max_length=12000),
+                  resume: UploadFile | None = File(default=None),
+                  user: User = Depends(current_user), db: Session = Depends(get_db)):
+    # Validate the upload before charging.
+    resume_text = resume_text_from_upload(resume) if resume is not None and resume.filename else ""
+    target = create_target_for(db, user, response, title.strip(), job_description.strip(), resume_text)
     return svc.target_to_dict(target)
 
 

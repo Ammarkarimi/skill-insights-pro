@@ -237,3 +237,28 @@ class Portfolio(Base):
     items: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Application(Base):
+    """A job the user is pursuing, tracked through the hiring stages."""
+
+    __tablename__ = "applications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    company: Mapped[str] = mapped_column(String(120))
+    title: Mapped[str] = mapped_column(String(120))
+    job_url: Mapped[str] = mapped_column(String(500), default="")
+    job_description: Mapped[str] = mapped_column(Text, default="")
+    location: Mapped[str] = mapped_column(String(120), default="")
+    salary_note: Mapped[str] = mapped_column(String(120), default="")
+    contact: Mapped[str] = mapped_column(String(200), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="saved")
+    status_history: Mapped[list] = mapped_column(JSON, default=list)  # [{status, at}]
+    next_date: Mapped[str | None] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD
+    next_label: Mapped[str] = mapped_column(String(120), default="")
+    checklist: Mapped[dict] = mapped_column(JSON, default=dict)  # {item_key: true}
+    prep: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

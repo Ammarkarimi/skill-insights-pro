@@ -16,6 +16,7 @@ from sqlalchemy import text
 from .config import get_settings
 from .db import SessionLocal, init_db
 from .routers import (
+    applications,
     assessment,
     auth,
     billing,
@@ -87,7 +88,7 @@ def create_app() -> FastAPI:
 
     for module in (auth, billing, resume, assessment, interview, job_match, career, chat, market,
                    readiness, deep_interview, tailor, letters, negotiation, proof, github,
-                   projects, portfolio):
+                   projects, portfolio, applications):
         app.include_router(module.router)
 
     @app.get("/api/health", include_in_schema=False)

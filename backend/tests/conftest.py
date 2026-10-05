@@ -72,6 +72,7 @@ class FakeLLM:
 @pytest.fixture
 def fake_llm(monkeypatch):
     from app.services import (
+        applications,
         assessment,
         career,
         chat,
@@ -85,11 +86,11 @@ def fake_llm(monkeypatch):
         proof,
         readiness,
         resume,
-            tailor,
+        tailor,
     )
 
     fake = FakeLLM()
-    for module in (assessment, career, chat, deep_interview, interview, job_match, letters, market,
-                   negotiation, project_review, proof, readiness, resume, tailor):
+    for module in (applications, assessment, career, chat, deep_interview, interview, job_match, letters,
+                   market, negotiation, project_review, proof, readiness, resume, tailor):
         monkeypatch.setattr(module, "generate", fake)
     return fake
