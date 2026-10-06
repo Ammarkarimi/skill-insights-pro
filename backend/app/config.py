@@ -84,6 +84,9 @@ class Settings(BaseSettings):
 
     environment: Literal["development", "production", "test"] = "development"
     app_name: str = "SkillSphere"
+    # Shown on the legal pages and in emails. Payment providers check that these are real.
+    company_name: str = ""  # legal name of the business; defaults to APP_NAME
+    support_email: str = ""
     # Public URL of the deployed app, used for Stripe redirect URLs.
     app_url: str = "http://localhost:8080"
     # Extra origins allowed by CORS (only needed when frontend and API are on different hosts).
@@ -158,6 +161,10 @@ class Settings(BaseSettings):
     google_ads_signup_label: str = ""  # conversion label for sign-ups
     google_ads_purchase_label: str = ""  # conversion label for purchases
     meta_pixel_id: str = ""  # digits only
+
+    # Error monitoring (optional): https://sentry.io project DSN.
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
 
     # Limits
     max_upload_mb: int = 5
@@ -261,6 +268,8 @@ class Settings(BaseSettings):
             problems.append("OPENAI_API_KEY is required")
         if not self.app_url.startswith("https://"):
             problems.append("APP_URL must be the public https:// URL of the app")
+        if "@" not in self.support_email or self.support_email.endswith("@example.com"):
+            problems.append("SUPPORT_EMAIL must be a real address (it is shown on the legal pages)")
         if self.require_email_verification and not self.email_enabled:
             problems.append("SMTP_HOST and SMTP_FROM are needed to verify signups by email "
                             "(or set REQUIRE_EMAIL_VERIFICATION=false)")

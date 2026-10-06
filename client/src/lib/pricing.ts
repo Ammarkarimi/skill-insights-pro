@@ -26,5 +26,13 @@ export const ACTION_LABELS: Record<string, string> = {
   story_drill: "Behavioral drill feedback",
 };
 
-export const COMPANY_NAME = import.meta.env.VITE_COMPANY_NAME || "Skill Sphere";
-export const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || "support@example.com";
+/** Set by the server in index.html (COMPANY_NAME, SUPPORT_EMAIL), so they change without a rebuild. */
+function serverMeta(name: string): string {
+  return typeof document === "undefined"
+    ? ""
+    : (document.querySelector(`meta[name="${name}"]`)?.getAttribute("content") ?? "").trim();
+}
+
+export const COMPANY_NAME = serverMeta("ss:company") || import.meta.env.VITE_COMPANY_NAME || "Skill Sphere";
+export const SUPPORT_EMAIL =
+  serverMeta("ss:support-email") || import.meta.env.VITE_SUPPORT_EMAIL || "support@example.com";

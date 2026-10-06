@@ -123,6 +123,7 @@ def test_production_needs_email_for_verification(monkeypatch):
     s = get_settings()
     monkeypatch.setattr(s, "jwt_secret", "p" * 40)
     monkeypatch.setattr(s, "app_url", "https://app.example.com")
+    monkeypatch.setattr(s, "support_email", "help@skillsphere.app")
     with pytest.raises(RuntimeError, match="SMTP_HOST"):
         s.validate_for_production()
     monkeypatch.setattr(s, "require_email_verification", False)

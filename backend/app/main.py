@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from .config import get_settings
+from .config import Settings, get_settings
 from .db import SessionLocal, init_db
 from .routers import (
     account,
@@ -48,6 +48,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("skillsphere")
 
 
+def init_error_monitoring(settings: Settings) -> bool:
+    """Sentry, when SENTRY_DSN is set. Request bodies (resumes, answers) and personal data are never sent."""
+    if not settings.sentry_dsn:
+        return False
+    import sentry_sdk
+
+    sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment, send_default_pii=False,
+                    max_request_body_size="never", traces_sample_rate=settings.sentry_traces_sample_rate)
+    return True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -61,6 +72,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    init_error_monitoring(settings)
     app = FastAPI(
         title=f"{settings.app_name} API",
         lifespan=lifespan,
@@ -113,6 +125,7 @@ def create_app() -> FastAPI:
     dist = (Path(__file__).resolve().parent.parent / settings.frontend_dist).resolve()
     if settings.serve_frontend and (dist / "index.html").exists():
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+        index_html = site.render_index((dist / "index.html").read_text(encoding="utf-8"), settings)
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str):
@@ -122,11 +135,11 @@ def create_app() -> FastAPI:
             if path.startswith("p/"):
                 # Public portfolios get link-preview tags (and noindex unless the owner opted in).
                 with SessionLocal() as db:
-                    shared = portfolio.share_page(db, path, (dist / "index.html").read_text())
+                    shared = portfolio.share_page(db, path, index_html)
                 if shared is not None:
                     page, headers = shared
                     return HTMLResponse(page, headers=headers)
-            return FileResponse(dist / "index.html", headers={"Cache-Control": "no-cache"})
+            return HTMLResponse(index_html, headers={"Cache-Control": "no-cache"})
     else:
         log.info("Frontend build not found at %s; serving API only", dist)
 
