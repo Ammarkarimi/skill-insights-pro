@@ -8,6 +8,7 @@ os.environ.update({
     "JWT_SECRET": "test-secret-test-secret-test-secret-1234",
     "OPENAI_API_KEY": "sk-test",
     "FREE_SIGNUP_CREDITS": "10",
+    "REQUIRE_EMAIL_VERIFICATION": "false",  # test_signup.py turns it on
     "SERVE_FRONTEND": "false",
     "STRIPE_SECRET_KEY": "",
     "STRIPE_WEBHOOK_SECRET": "",
@@ -18,16 +19,20 @@ os.environ.update({
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import links  # noqa: E402
+from app import links, migrate  # noqa: E402
 from app.db import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.ratelimit import limiter  # noqa: E402
 
+# Build the schema the way production does: through the migrations.
+migrate.upgrade(engine)
+
 
 @pytest.fixture(autouse=True)
 def _clean_state(monkeypatch):
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        for table in reversed(Base.metadata.sorted_tables):
+            conn.execute(table.delete())
     limiter.reset()
     # Never hit the network for link checks in tests.
     monkeypatch.setattr(links, "url_is_alive", lambda url, client: "dead" not in url)

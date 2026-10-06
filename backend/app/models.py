@@ -33,6 +33,12 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(200))
     credits: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Lowercased, without "+tags" (and without dots for Gmail): one free-credit bonus per inbox.
+    email_canonical: Mapped[str] = mapped_column(String(320), default="", index=True)
+    signup_bonus: Mapped[bool] = mapped_column(Boolean, default=False)
+    # First-touch marketing attribution (utm_*, click ids, referrer), for ad spend decisions.
+    acquisition: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class Payment(Base):

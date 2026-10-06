@@ -128,6 +128,14 @@ class Settings(BaseSettings):
     # Shared secret for the hourly reminders job (POST /api/internal/cron/reminders).
     cron_secret: str = ""
 
+    # Signup protection: free credits only after the email is verified, optional Cloudflare
+    # Turnstile on the signup form, and a daily cap on signups per IP address.
+    require_email_verification: bool = True
+    turnstile_site_key: str = ""
+    turnstile_secret_key: str = ""
+    signups_per_ip_per_day: int = 5
+    blocked_email_domains: str = ""  # comma separated, added to the built-in disposable list
+
     # Limits
     max_upload_mb: int = 5
     max_job_match_resumes: int = 10
@@ -175,6 +183,10 @@ class Settings(BaseSettings):
         return bool(self.smtp_host and self.smtp_from)
 
     @property
+    def turnstile_enabled(self) -> bool:
+        return bool(self.turnstile_site_key and self.turnstile_secret_key)
+
+    @property
     def adzuna_enabled(self) -> bool:
         return bool(self.adzuna_app_id and self.adzuna_app_key)
 
@@ -193,6 +205,9 @@ class Settings(BaseSettings):
             problems.append("OPENAI_API_KEY is required")
         if not self.app_url.startswith("https://"):
             problems.append("APP_URL must be the public https:// URL of the app")
+        if self.require_email_verification and not self.email_enabled:
+            problems.append("SMTP_HOST and SMTP_FROM are needed to verify signups by email "
+                            "(or set REQUIRE_EMAIL_VERIFICATION=false)")
         if problems:
             raise RuntimeError("Invalid production configuration:\n- " + "\n- ".join(problems))
 
