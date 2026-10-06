@@ -14,18 +14,25 @@ class CreditPack(BaseModel):
     id: str
     name: str
     credits: int
-    price_cents: int
+    price_cents: int  # in CURRENCY, used by Stripe
     description: str = ""
     highlight: bool = False
+    # Local prices for Paddle, in minor units per currency, e.g. {"usd": 999, "gbp": 799}.
+    prices: dict[str, int] = Field(default_factory=dict)
 
 
+# Local prices: GBP, EUR and AUD include VAT/GST (shown as the final price, as UK, EU and
+# Australian consumer law expects); USD is before sales tax, as US shoppers expect.
 DEFAULT_PACKS = [
     CreditPack(id="starter", name="Starter", credits=40, price_cents=399,
-               description="Try every feature a few times."),
+               description="Try every feature a few times.",
+               prices={"usd": 399, "gbp": 349, "eur": 399, "aud": 599}),
     CreditPack(id="pro", name="Pro", credits=120, price_cents=999,
-               description="Best for an active job search.", highlight=True),
+               description="Best for an active job search.", highlight=True,
+               prices={"usd": 999, "gbp": 799, "eur": 899, "aud": 1499}),
     CreditPack(id="power", name="Power", credits=300, price_cents=1999,
-               description="For heavy interview prep and recruiters."),
+               description="For heavy interview prep and recruiters.",
+               prices={"usd": 1999, "gbp": 1599, "eur": 1799, "aud": 2999}),
 ]
 
 # Rupee micro-packs for Razorpay (UPI, cards, netbanking). Prices are in paise, tax inclusive.
@@ -102,6 +109,14 @@ class Settings(BaseSettings):
     action_costs: dict[str, int] = Field(default_factory=lambda: dict(DEFAULT_COSTS))
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+    # Paddle (merchant of record: collects and files VAT, GST and US sales tax) for cards, Apple Pay,
+    # Google Pay and PayPal in USD, GBP, EUR and AUD. Preferred over Stripe when configured.
+    paddle_api_key: str = ""  # pdl_sdbx_apikey_... (sandbox) or pdl_live_apikey_...
+    paddle_client_token: str = ""  # test_... or live_..., safe to show in the browser
+    paddle_webhook_secret: str = ""  # pdl_ntfset_..., from the notification destination
+    paddle_product_id: str = ""  # optional pro_...; otherwise each checkout names its own product
+    paddle_tax_category: str = "standard"
+    tax_inclusive_currencies: str = "gbp,eur,aud,inr"
     # Razorpay (India: UPI, cards, netbanking) in INR, alongside Stripe.
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
@@ -173,6 +188,29 @@ class Settings(BaseSettings):
     @property
     def payments_enabled(self) -> bool:
         return bool(self.stripe_secret_key and self.stripe_webhook_secret)
+
+    @property
+    def paddle_enabled(self) -> bool:
+        return bool(self.paddle_api_key and self.paddle_client_token and self.paddle_webhook_secret)
+
+    @property
+    def paddle_sandbox(self) -> bool:
+        return self.paddle_api_key.startswith("pdl_sdbx_") or self.paddle_client_token.startswith("test_")
+
+    @property
+    def card_provider(self) -> str | None:
+        """Who takes card payments: Paddle when configured (it handles tax), else Stripe."""
+        if self.paddle_enabled:
+            return "paddle"
+        return "stripe" if self.payments_enabled else None
+
+    def paddle_currencies(self) -> list[str]:
+        """Currencies every pack has a price in (the order of the first pack)."""
+        packs = self.credit_packs
+        return [c for c in (packs[0].prices if packs else {}) if all(c in p.prices for p in packs)]
+
+    def is_tax_inclusive(self, currency: str) -> bool:
+        return currency.lower() in {c.strip().lower() for c in self.tax_inclusive_currencies.split(",")}
 
     @property
     def razorpay_enabled(self) -> bool:

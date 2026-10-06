@@ -67,6 +67,9 @@ class Payment(Base):
     amount_cents: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(10))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # The buyer asked for the credits now and accepted losing the 14-day cancellation right once
+    # they use them (UK Consumer Contracts Regulations, EU Consumer Rights Directive). NULL: not asked.
+    supply_consent: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class UsageEvent(Base):

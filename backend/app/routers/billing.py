@@ -1,4 +1,5 @@
-"""Credit packs: Stripe Checkout (USD) and Razorpay (INR: UPI, cards, netbanking), with webhooks."""
+"""Credit packs: Paddle (USD, GBP, EUR, AUD; merchant of record), Stripe Checkout, and Razorpay
+(INR: UPI, cards, netbanking), each confirmed by a signed webhook and by the browser on return."""
 
 from __future__ import annotations
 
@@ -7,7 +8,7 @@ import logging
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,7 +17,7 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import Payment, UsageEvent, User
 from ..security import current_user
-from ..services import razorpay
+from ..services import paddle, razorpay
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/billing", tags=["billing"])
@@ -38,7 +39,15 @@ def packs() -> dict:
         "packs": [p.model_dump() for p in settings.credit_packs],
         "costs": settings.action_costs,
         "freeSignupCredits": settings.free_signup_credits,
-        "paymentsEnabled": settings.payments_enabled,
+        "paymentsEnabled": settings.card_provider is not None,
+        "cardProvider": settings.card_provider,
+        "paddle": {
+            "enabled": settings.paddle_enabled,
+            "environment": "sandbox" if settings.paddle_sandbox else "production",
+            "clientToken": settings.paddle_client_token if settings.paddle_enabled else "",
+            "currencies": settings.paddle_currencies() if settings.paddle_enabled else [],
+            "taxInclusive": [c for c in settings.paddle_currencies() if settings.is_tax_inclusive(c)],
+        },
         "inr": {
             "enabled": settings.razorpay_enabled,
             "currency": "inr",
@@ -48,17 +57,30 @@ def packs() -> dict:
     }
 
 
+CONSENT_REQUIRED = ("Please confirm that you want the credits straight away and understand that you lose "
+                    "the right to cancel once you use them.")
+
+
 class CheckoutIn(BaseModel):
     pack_id: str
+    # Express request for immediate supply of digital content (see Payment.supply_consent).
+    consent: bool = False
+
+
+def _pack(pack_id: str):
+    pack = next((p for p in get_settings().credit_packs if p.id == pack_id), None)
+    if pack is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown credit pack.")
+    return pack
 
 
 @router.post("/checkout")
 def checkout(body: CheckoutIn, user: User = Depends(current_user)) -> dict:
     settings = get_settings()
-    pack = next((p for p in settings.credit_packs if p.id == body.pack_id), None)
-    if pack is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown credit pack.")
+    pack = _pack(body.pack_id)
     client = _stripe()
+    if not body.consent:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, CONSENT_REQUIRED)
     session = client.v1.checkout.sessions.create(params={
         "mode": "payment",
         "customer_email": user.email,
@@ -74,7 +96,8 @@ def checkout(body: CheckoutIn, user: User = Depends(current_user)) -> dict:
                 },
             },
         }],
-        "metadata": {"user_id": str(user.id), "pack_id": pack.id, "credits": str(pack.credits)},
+        "metadata": {"user_id": str(user.id), "pack_id": pack.id, "credits": str(pack.credits),
+                     "supply_consent": "yes"},
         "success_url": f"{settings.app_url}/billing?status=success&session_id={{CHECKOUT_SESSION_ID}}",
         "cancel_url": f"{settings.app_url}/billing?status=cancelled",
     })
@@ -82,14 +105,15 @@ def checkout(body: CheckoutIn, user: User = Depends(current_user)) -> dict:
 
 
 def grant_credits(db: Session, *, user_id: int, provider: str, provider_ref: str, pack_id: str,
-                  credits: int, amount_cents: int, currency: str) -> bool:
+                  credits: int, amount_cents: int, currency: str, supply_consent: bool | None = None) -> bool:
     """Record a payment and add its credits. Idempotent per provider_ref; True if newly granted."""
     if db.get(User, user_id) is None:
         log.error("%s payment %s references unknown user %s", provider, provider_ref, user_id)
         return False
     try:
         db.add(Payment(user_id=user_id, provider=provider, provider_ref=provider_ref, pack_id=pack_id,
-                       credits=credits, amount_cents=amount_cents, currency=currency))
+                       credits=credits, amount_cents=amount_cents, currency=currency,
+                       supply_consent=supply_consent))
         db.execute(update(User).where(User.id == user_id).values(credits=User.credits + credits))
         db.commit()
     except IntegrityError:  # already fulfilled (webhook retry, or webhook and browser both confirmed)
@@ -113,7 +137,8 @@ def fulfill_checkout(db: Session, session: dict) -> bool:
     return grant_credits(db, user_id=user_id, provider="stripe", provider_ref=session["id"],
                          pack_id=metadata.get("pack_id", ""), credits=credits,
                          amount_cents=int(session.get("amount_total") or 0),
-                         currency=str(session.get("currency") or ""))
+                         currency=str(session.get("currency") or ""),
+                         supply_consent=metadata.get("supply_consent") == "yes" or None)
 
 
 @router.post("/webhook", include_in_schema=False)
@@ -149,7 +174,97 @@ def confirm(body: ConfirmIn, user: User = Depends(current_user),
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Checkout session not found.") from None
     fulfill_checkout(db, session)
     db.refresh(user)
-    return {"paid": session.get("payment_status") == "paid", "credits": user.credits}
+    return {"paid": session.get("payment_status") == "paid", "credits": user.credits,
+            "amountCents": int(session.get("amount_subtotal") or session.get("amount_total") or 0),
+            "currency": str(session.get("currency") or ""), "ref": session.get("id")}
+
+
+# ---------------------------------------------------------------- Paddle (merchant of record)
+def _paddle_on() -> None:
+    if not get_settings().paddle_enabled:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
+                            "Payments are not configured yet. Please try again later.")
+
+
+def fulfill_paddle(db: Session, txn: dict) -> bool:
+    """Grant credits for a paid transaction we created. Idempotent per transaction id."""
+    if txn.get("status") not in paddle.PAID:
+        return False
+    data = txn.get("custom_data") or {}
+    pack = next((p for p in get_settings().credit_packs if p.id == data.get("pack_id")), None)
+    currency = str(txn.get("currency_code") or "").lower()
+    unit, total = paddle.paid_amount(txn)
+    # The price on the transaction must be ours for that pack, so edited custom data cannot
+    # turn a cheap pack into a big one.
+    if pack is None or paddle.price_of(pack, currency) != unit:
+        log.error("Paddle transaction %s does not match a pack price", txn.get("id"))
+        return False
+    try:
+        user_id = int(data["user_id"])
+    except (KeyError, TypeError, ValueError):
+        log.error("Paddle transaction %s has no usable custom data", txn.get("id"))
+        return False
+    return grant_credits(db, user_id=user_id, provider="paddle", provider_ref=str(txn["id"]),
+                         pack_id=pack.id, credits=pack.credits, amount_cents=total or unit,
+                         currency=currency, supply_consent=data.get("supply_consent") == "yes")
+
+
+class PaddleTransactionIn(BaseModel):
+    pack_id: str
+    currency: str = Field(min_length=3, max_length=3)
+    consent: bool = False
+
+
+@router.post("/paddle/transaction")
+def paddle_transaction(body: PaddleTransactionIn, user: User = Depends(current_user)) -> dict:
+    _paddle_on()
+    pack = _pack(body.pack_id)
+    currency = body.currency.lower()
+    if currency not in get_settings().paddle_currencies():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "That currency is not available.")
+    if not body.consent:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, CONSENT_REQUIRED)
+    try:
+        txn = paddle.create_transaction(pack, currency, user.id, consent=True)
+    except paddle.PaddleError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from None
+    return {"transactionId": txn["id"], "email": user.email}
+
+
+class PaddleConfirmIn(BaseModel):
+    transaction_id: str = Field(max_length=64)
+
+
+@router.post("/paddle/confirm")
+def paddle_confirm(body: PaddleConfirmIn, user: User = Depends(current_user),
+                   db: Session = Depends(get_db)) -> dict:
+    """Called when Paddle Checkout reports success, so credits appear without waiting for the webhook."""
+    _paddle_on()
+    try:
+        txn = paddle.get_transaction(body.transaction_id)
+    except paddle.PaddleError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found.") from None
+    if (txn.get("custom_data") or {}).get("user_id") != str(user.id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found.")
+    fulfill_paddle(db, txn)
+    db.refresh(user)
+    paid = txn.get("status") in paddle.PAID
+    unit, _ = paddle.paid_amount(txn)
+    return {"paid": paid, "pending": not paid and txn.get("status") in ("ready", "billed"),
+            "credits": user.credits, "amountCents": unit,
+            "currency": str(txn.get("currency_code") or "").lower(), "ref": txn.get("id")}
+
+
+@router.post("/paddle/webhook", include_in_schema=False)
+async def paddle_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
+    _paddle_on()
+    body = await request.body()
+    if not paddle.webhook_signature_ok(body, request.headers.get("paddle-signature", "")):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid signature")
+    event = await request.json()
+    if event.get("event_type") in ("transaction.paid", "transaction.completed"):
+        await run_in_threadpool(fulfill_paddle, db, event.get("data") or {})
+    return {"received": True}
 
 
 # ---------------------------------------------------------------- Razorpay (INR)
@@ -225,7 +340,8 @@ def razorpay_verify(body: RazorpayVerifyIn, user: User = Depends(current_user),
     fulfill_razorpay(db, order, payment)
     db.refresh(user)
     status_ = payment.get("status")
-    return {"paid": status_ == "captured", "pending": status_ == "authorized", "credits": user.credits}
+    return {"paid": status_ == "captured", "pending": status_ == "authorized", "credits": user.credits,
+            "amountCents": int(order.get("amount") or 0), "currency": "inr", "ref": body.order_id}
 
 
 @router.post("/razorpay/webhook", include_in_schema=False)

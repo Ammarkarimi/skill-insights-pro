@@ -93,7 +93,8 @@ def test_order_then_verify_grants_once(client, user, rzp):
                                                      "credits": "120"}
     pid = rzp["pay"](o["orderId"])
     r = verify(client, o["orderId"], pid)
-    assert r.json() == {"paid": True, "pending": False, "credits": 130}
+    assert r.json() == {"paid": True, "pending": False, "credits": 130, "amountCents": 24900,
+                        "currency": "inr", "ref": o["orderId"]}
     assert verify(client, o["orderId"], pid).json()["credits"] == 130  # idempotent
     history = client.get("/api/billing/history").json()["payments"]
     assert history[0]["currency"] == "inr" and history[0]["amountCents"] == 24900
@@ -111,7 +112,8 @@ def test_bad_signature_and_unknown_pack(client, user, rzp):
 def test_authorized_payment_is_pending(client, user, rzp):
     o = order(client)
     pid = rzp["pay"](o["orderId"], status="authorized")
-    assert verify(client, o["orderId"], pid).json() == {"paid": False, "pending": True, "credits": 10}
+    body = verify(client, o["orderId"], pid).json()
+    assert (body["paid"], body["pending"], body["credits"]) == (False, True, 10)
 
 
 def test_amount_mismatch_is_not_granted(client, user, rzp):
