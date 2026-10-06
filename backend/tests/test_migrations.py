@@ -6,7 +6,8 @@ from sqlalchemy import create_engine, inspect, text
 
 from app import migrate
 from app.db import Base
-from app.models import User
+from app.models import SignupBonusClaim, User
+from app.services.signup import bonus_hash
 
 
 def _engine(tmp_path, name="m.db"):
@@ -43,3 +44,6 @@ def test_legacy_create_all_database_is_adopted(tmp_path):
     # Existing users already had their free credits: verified, bonus used, credits untouched.
     assert old.credits == 7 and old.signup_bonus and old.email_verified_at is not None
     assert old.email_canonical == "oldname@gmail.com"
+    with engine.connect() as conn:
+        claim = conn.execute(SignupBonusClaim.__table__.select()).one()
+    assert claim.email_hash == bonus_hash("oldname@gmail.com")

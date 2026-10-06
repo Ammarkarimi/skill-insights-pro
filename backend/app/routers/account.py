@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,8 +13,8 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import EmailPreference, User, utcnow
 from ..ratelimit import limiter
-from ..security import current_user, read_purpose_token
-from ..services import mailer
+from ..security import clear_session_cookie, current_user, read_purpose_token, verify_password
+from ..services import account_data, mailer
 from ..services.mailer import UNSUBSCRIBE, unsubscribe_links
 
 router = APIRouter(tags=["account"])
@@ -108,3 +109,39 @@ async def unsubscribe(request: Request, token: str | None = None, db: Session = 
     p.updated_at = utcnow()
     db.commit()
     return {"unsubscribed": True}
+
+
+# ---------------------------------------------------------------- your data
+@router.get("/api/account/export")
+def export(user: User = Depends(current_user), db: Session = Depends(get_db)) -> JSONResponse:
+    """Everything stored about the user, as a JSON download."""
+    limiter.hit(f"export:{user.id}", 5, 3600)
+    filename = f"{get_settings().app_name.lower()}-data-{utcnow().date().isoformat()}.json"
+    return JSONResponse(account_data.export_data(db, user),
+                        headers={"Content-Disposition": f'attachment; filename="{filename}"',
+                                 "Cache-Control": "no-store"})
+
+
+class DeleteIn(BaseModel):
+    password: str = Field(max_length=128)
+    confirm: str = Field(max_length=20)
+
+
+@router.post("/api/account/delete", status_code=204)
+async def delete_account(body: DeleteIn, response: Response, user: User = Depends(current_user),
+                         db: Session = Depends(get_db)) -> Response:
+    limiter.hit(f"delete:{user.id}", 5, 3600)
+    if body.confirm.strip().upper() != "DELETE":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Type DELETE to confirm.")
+    if not verify_password(body.password, user.password_hash):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "That password is not correct.")
+    email, name = user.email, get_settings().app_name
+    await run_in_threadpool(account_data.delete_account, db, user)
+    await run_in_threadpool(mailer.send, mailer.Email(
+        to=email, subject=f"Your {name} account was deleted", heading="Your account was deleted",
+        paragraphs=["Your account and the data in it have been deleted, as you asked.",
+                    "Records of past payments are kept, without your details, because tax law requires it.",
+                    "If you did not do this, contact us straight away."]))
+    clear_session_cookie(response)
+    response.status_code = 204
+    return response

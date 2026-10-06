@@ -41,13 +41,25 @@ class User(Base):
     acquisition: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
+class SignupBonusClaim(Base):
+    """One row per inbox that received the free signup credits. Only a hash of the address is kept,
+    and it survives account deletion, so deleting and signing up again does not earn a second bonus."""
+
+    __tablename__ = "signup_bonus_claims"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Payment(Base):
     """A completed credit purchase. `provider_ref` is unique so webhooks are idempotent."""
 
     __tablename__ = "payments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    # NULL once the account is deleted: payment records are kept for tax law, without the person.
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     provider: Mapped[str] = mapped_column(String(20), default="stripe")
     provider_ref: Mapped[str] = mapped_column(String(255), unique=True)
     pack_id: Mapped[str] = mapped_column(String(50))

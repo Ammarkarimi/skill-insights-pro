@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, Mail, Send } from "lucide-react";
 import Layout from "@/components/Layout";
+import YourDataCard from "@/components/settings/YourDataCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,6 +154,8 @@ const Settings: React.FC = () => {
             </p>
           </CardContent>
         </Card>
+
+        <YourDataCard />
       </div>
     </Layout>
   );

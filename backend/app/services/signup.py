@@ -6,16 +6,18 @@ Free credits cost real AI spend, so they are only granted once someone proves th
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import datetime, timezone
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..data.disposable_domains import DISPOSABLE_DOMAINS
-from ..models import User
+from ..models import SignupBonusClaim, User
 from ..security import create_purpose_token
 from . import mailer
 
@@ -87,20 +89,28 @@ def send_verification(user: User) -> bool:
         footer="If you did not create an account, you can ignore this email."))
 
 
-def bonus_already_claimed(db: Session, user: User) -> bool:
-    """Has another account on the same inbox already received the free credits?"""
-    return db.scalar(select(User.id).where(User.email_canonical == user.email_canonical,
-                                           User.id != user.id, User.signup_bonus.is_(True))
-                     .limit(1)) is not None
+def bonus_hash(canonical: str) -> str:
+    return hashlib.sha256(f"signup-bonus:{canonical}".encode()).hexdigest()
+
+
+def _claim_bonus(db: Session, user: User) -> bool:
+    """Record that this inbox got the bonus. False if it already had (unique hash)."""
+    inbox = user.email_canonical or canonical_email(user.email)
+    try:
+        with db.begin_nested():
+            db.add(SignupBonusClaim(email_hash=bonus_hash(inbox)))
+    except IntegrityError:
+        return False
+    return True
 
 
 def mark_verified(db: Session, user: User) -> int:
-    """Verify the email and grant the signup bonus once per inbox. Returns credits added."""
+    """Verify the email and grant the signup bonus once per inbox, ever. Returns credits added."""
     added = 0
     if user.email_verified_at is None:
         user.email_verified_at = datetime.now(timezone.utc)
     bonus = get_settings().free_signup_credits
-    if not user.signup_bonus and bonus > 0 and not bonus_already_claimed(db, user):
+    if not user.signup_bonus and bonus > 0 and _claim_bonus(db, user):
         user.signup_bonus = True
         # An UPDATE expression, so a charge running at the same moment is never overwritten.
         db.execute(update(User).where(User.id == user.id).values(credits=User.credits + bonus))
