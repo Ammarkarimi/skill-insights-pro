@@ -30,7 +30,8 @@
 | 3 | Public **Skill Proof Portfolio**: adaptive-difficulty assessments, GitHub project review, shareable evidence page | ✅ Shipped |
 | 4 | **Hiring journey toolkit** for job seekers: **application tracker** with stage checklists and prep kits; **online assessment practice** (verified aptitude tests, in-browser coding with a timed mock OA and code review); **STAR story bank** with drills; **learning loop** (saved plans, spaced review of mistakes, streaks, re-tests) | ✅ Shipped |
 | 5 | **India payments** (Razorpay: UPI, cards, netbanking; rupee micro-packs from ₹49); **email** over any SMTP provider: opt-in daily nudge and Monday summary, one-click unsubscribe, password reset | ✅ Shipped |
-| 6 | Campus and bootcamp cohorts (a coach sees cohort readiness and common gaps; students keep paying their own way, coaches can gift credits) | Later |
+| 6 | **Launch readiness for the UK, US, EU and Australia:** Paddle checkout (merchant of record, local prices in USD/GBP/EUR/AUD, tax handled) with the UK/EU immediate-supply consent; **signup protection** (free credits after email confirmation, once per inbox, throwaway domains blocked, Turnstile, per-IP cap); **data export and account deletion**; **analytics and ad conversions** behind a cookie banner, with campaign attribution and a revenue-by-campaign report; Alembic migrations; Sentry; sitemap and link previews | ✅ Shipped |
+| 7 | Campus and bootcamp cohorts (a coach sees cohort readiness and common gaps; students keep paying their own way, coaches can gift credits); a subscription option ("interview season pass") for higher lifetime value from paid ads | Later |
 
 Company-facing hiring tools are out of scope: they will be a separate product.
 

@@ -2,7 +2,7 @@
 
 **Your AI-powered career companion.** Assess your skills, get recruiter-grade resume feedback, practise interviews, match yourself against real job descriptions, and plan your career, all powered by OpenAI.
 
-The app is built to be hosted as a paid product. Users sign up, get free credits, and buy small credit packs through Stripe Checkout.
+The app is built to be hosted as a paid product. Users sign up, confirm their email to get free credits, and buy small credit packs: through Paddle in USD, GBP, EUR and AUD (Paddle handles VAT, GST and sales tax), Stripe, or Razorpay in rupees.
 
 ---
 
@@ -37,15 +37,18 @@ The app is built to be hosted as a paid product. Users sign up, get free credits
 
 ```
 client/   React + Vite + Tailwind + shadcn/ui (SPA)
-backend/  FastAPI · SQLAlchemy (Postgres/SQLite) · OpenAI Responses API (Structured Outputs) · Stripe
+backend/  FastAPI · SQLAlchemy + Alembic (Postgres/SQLite) · OpenAI Responses API (Structured Outputs) · Paddle / Stripe / Razorpay
 Dockerfile  builds the SPA and serves it from the API container (one origin, no CORS)
 ```
 
 * **Auth:** email and password (bcrypt), session JWT in an httpOnly, `Secure`, `SameSite=Lax` cookie.
-* **Billing:** prepaid credit packs through Stripe Checkout. A signed webhook and a return-URL confirmation both grant credits, idempotently.
+* **Billing:** prepaid credit packs through Paddle (merchant of record, local prices), Stripe Checkout or Razorpay. A signed webhook and a browser confirmation both grant credits, idempotently, and only for our price of the pack.
+* **Signups:** free credits only after the email is confirmed, once per inbox (+tags and Gmail dots included, and even after deleting the account); throwaway domains blocked; optional Cloudflare Turnstile; a daily cap per IP.
 * **AI quality:** every feature uses a Pydantic schema with OpenAI Structured Outputs, an expert system prompt with a calibrated rubric, and untrusted-input fencing against prompt injection. Resume highlights are located server-side from exact quotes, and dead resource links are swapped for working search links.
 * **Privacy:** resumes are parsed in memory and never written to disk. Only interview feedback is stored, per user.
 * **Abuse protection:** per-user AI rate limit, per-IP auth rate limit, 5 MB upload limit, text-length caps.
+* **Your data:** users download everything stored about them, or delete their account, from Settings.
+* **Growth:** first-touch campaign attribution on signup, GA4 / Google Ads / Meta Pixel conversions behind a cookie banner, and `python -m app.jobs acquisition` for signups and revenue by campaign.
 
 See [`docs/DEPLOYMENT_PLAN.md`](docs/DEPLOYMENT_PLAN.md) for the full review and the reasoning behind each change.
 
@@ -89,25 +92,41 @@ The app ships as **one Docker image** that serves the API and the frontend. Any 
 | Variable | Notes |
 |---|---|
 | `ENVIRONMENT` | `production` (enables secure cookies and HSTS, hides API docs, validates config at startup). Set by the Dockerfile |
-| `APP_URL` | Public `https://` URL, used for Stripe redirects |
+| `APP_URL` | Public `https://` URL, used for payment redirects, email links, link previews and the sitemap |
 | `JWT_SECRET` | `python -c "import secrets;print(secrets.token_urlsafe(48))"` |
 | `DATABASE_URL` | Postgres URL (`postgres://…` and `postgresql://…` both work) |
 | `OPENAI_API_KEY` | Set a monthly **usage limit** in the OpenAI dashboard |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Card purchases are disabled until both are set |
+| `SUPPORT_EMAIL`, `COMPANY_NAME` | Shown on the legal pages (filled in at runtime, no rebuild). Production refuses to start without a real support email |
+| `PADDLE_API_KEY`, `PADDLE_CLIENT_TOKEN`, `PADDLE_WEBHOOK_SECRET` | Recommended for card payments: local prices in USD, GBP, EUR and AUD, with tax handled by Paddle (below) |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Alternative card processor, used when Paddle is not configured |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Optional: rupee packs paid with UPI, cards or netbanking (India) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SECURITY` | Needed for password reset and reminder emails. Any SMTP provider |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SECURITY` | Needed for signup confirmation, password reset and reminders. Production refuses to start without them while `REQUIRE_EMAIL_VERIFICATION` is on (the default) |
 | `CRON_SECRET` | Protects the hourly reminders job URL |
 
-Optional: `OPENAI_MODEL`, `OPENAI_MODEL_FAST`, `OPENAI_REASONING_EFFORT`, `CURRENCY`, `FREE_SIGNUP_CREDITS`, `CREDIT_PACKS`, `INR_CREDIT_PACKS`, `ACTION_COSTS`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_TOKEN`, `WEB_CONCURRENCY`. See [`.env.example`](.env.example).
+Optional: `OPENAI_MODEL`, `OPENAI_MODEL_FAST`, `OPENAI_REASONING_EFFORT`, `CURRENCY`, `FREE_SIGNUP_CREDITS`, `CREDIT_PACKS`, `INR_CREDIT_PACKS`, `ACTION_COSTS`, `PADDLE_PRODUCT_ID`, `TAX_INCLUSIVE_CURRENCIES`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, `SIGNUPS_PER_IP_PER_DAY`, `BLOCKED_EMAIL_DOMAINS`, `GA_MEASUREMENT_ID`, `GOOGLE_ADS_ID`, `GOOGLE_ADS_SIGNUP_LABEL`, `GOOGLE_ADS_PURCHASE_LABEL`, `META_PIXEL_ID`, `SENTRY_DSN`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_TOKEN`, `WEB_CONCURRENCY`. See [`.env.example`](.env.example).
 
-Build-time (Docker build args): `VITE_COMPANY_NAME`, `VITE_SUPPORT_EMAIL`, shown on the legal pages and in the footer.
+`VITE_COMPANY_NAME` and `VITE_SUPPORT_EMAIL` (Docker build args) still work as fallbacks, but the server settings above take precedence.
 
 ### 2. Example: Render
 1. Create a **PostgreSQL** instance and copy its *Internal Database URL*.
 2. Create a **Web Service** from this repo with runtime **Docker**. Add the env vars above, with `DATABASE_URL` set to the Postgres URL.
 3. Set the health check path to `/api/health`.
 
-### 3. Stripe
+### 3. Paddle (recommended for UK, US, EU and Australian buyers)
+Paddle is the **merchant of record**: it sells the credits to the buyer on your behalf, and charges and files UK VAT, EU VAT, Australian GST and US sales tax. It accepts sellers based in India and pays out monthly.
+1. Apply at [paddle.com](https://www.paddle.com) and add your domain. Paddle reviews the live site, so deploy first with the Terms, Privacy and Refund pages and a real `SUPPORT_EMAIL`. Start in the **sandbox** (sandbox-vendors.paddle.com).
+2. **Developer tools → Authentication:** create an API key (`pdl_sdbx_apikey_…` in the sandbox) with the transactions permissions, and a client-side token (`test_…`). Put them in `PADDLE_API_KEY` and `PADDLE_CLIENT_TOKEN`. The app picks the sandbox or live API from the key.
+3. **Checkout → Checkout settings:** set the default payment link to `https://YOUR_DOMAIN/billing`.
+4. **Developer tools → Notifications:** add a destination `https://YOUR_DOMAIN/api/billing/paddle/webhook` with the events `transaction.paid` and `transaction.completed`, and copy its secret key (`pdl_ntfset_…`) into `PADDLE_WEBHOOK_SECRET`.
+5. Optional: create one product ("Credits", tax category Standard) and put its id in `PADDLE_PRODUCT_ID`; otherwise each checkout names the product itself.
+6. Test with card `4242 4242 4242 4242` in the sandbox, then switch to live keys.
+
+Prices are configured in the app: `CREDIT_PACKS` sets each pack's `prices` per currency, in minor units (defaults: Starter $3.99 / £3.49 / €3.99 / A$5.99, Pro $9.99 / £7.99 / €8.99 / A$14.99, Power $19.99 / £15.99 / €17.99 / A$29.99). GBP, EUR and AUD prices include tax, as UK, EU and Australian consumer law expects; USD is before sales tax (`TAX_INCLUSIVE_CURRENCIES`). Visitors see their local currency first, guessed from the browser. Paddle's fee is about 5% + 50¢ per payment, so check the margin on the smallest pack.
+
+Before paying by card, buyers tick a box asking for their credits straight away and accepting that they lose the 14-day right to cancel once they use them (UK and EU law for digital content). The choice is stored on the payment.
+
+### 4. Stripe (alternative)
+Used for card payments only when Paddle is not configured. With Stripe you are the seller, so you are responsible for VAT, GST and sales tax registration yourself.
 1. In Stripe, go to **Developers → Webhooks → Add endpoint**: `https://YOUR_DOMAIN/api/billing/webhook`.
 2. Select the events `checkout.session.completed` and `checkout.session.async_payment_succeeded`.
 3. Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
@@ -115,46 +134,61 @@ Build-time (Docker build args): `VITE_COMPANY_NAME`, `VITE_SUPPORT_EMAIL`, shown
 
 Prices and currency are configured in the app (`CREDIT_PACKS`, `CURRENCY`), so no Stripe products need to be created. To sell in rupees with UPI, add Razorpay (below) and keep Stripe on your main currency.
 
-### 4. GitHub (project ownership verification)
+### 5. GitHub (project ownership verification)
 Project reviews work without this, but they are marked "not verified".
 1. Go to GitHub **Settings → Developer settings → OAuth Apps → New OAuth App**.
 2. Set the **Authorization callback URL** to `https://YOUR_DOMAIN/api/github/callback`.
 3. Copy the client ID and a new client secret into `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. The app only asks for the `read:user` scope and never stores the user's token.
 4. Recommended: set `GITHUB_TOKEN` to a fine-grained token with **no permissions** (public read only). It raises the API limit from 60 to 5,000 requests an hour.
 
-### 5. Razorpay (rupees: UPI, cards, netbanking)
+### 6. Razorpay (rupees: UPI, cards, netbanking)
 Shown next to the card packs when configured. Visitors in India see rupee prices first.
 1. In the Razorpay dashboard, create API keys (start in **Test mode**) and copy them into `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`.
 2. Under **Webhooks**, add `https://YOUR_DOMAIN/api/billing/razorpay/webhook` with the events `payment.captured` and `order.paid`, set a secret and copy it into `RAZORPAY_WEBHOOK_SECRET`.
 3. Keep **automatic capture** on (the default) so payments are captured right away.
 4. Default packs are ₹49/15, ₹99/40, ₹249/120 and ₹499/300 credits, tax inclusive; override with `INR_CREDIT_PACKS` (prices in paise). Check the margin against your OpenAI cost per credit, and register for GST before selling in India.
 
-### 6. Email (password reset and reminders)
+### 7. Email (signup confirmation, password reset, reminders)
 1. Pick any SMTP provider (Amazon SES, Postmark, SendGrid, Mailgun, Resend, or Gmail with an app password for testing) and verify your sending domain with **SPF and DKIM** so emails reach the inbox.
 2. Set `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` (for example `SkillSphere <hello@yourdomain.com>`) and `SMTP_SECURITY` (`starttls`, `ssl` for port 465, or `none`).
 3. Reminders are opt-in. Run the reminders job **every hour** (it sends at each user's chosen local hour, at most one daily nudge and a Monday summary, and never twice):
    - **Any cron service** (Render Cron Job, GitHub Actions, cron-job.org): `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://YOUR_DOMAIN/api/internal/cron/reminders`
    - **Or on a host with cron:** `python -m app.jobs reminders` in the backend directory.
-4. Without SMTP outside production, emails are written to the server log instead, so you can try password reset locally.
+4. Without SMTP outside production, emails are written to the server log instead, so you can try signup confirmation and password reset locally (copy the link from the log).
 
-### 7. Try it locally with Docker + Postgres
+### 8. Signup protection
+- **Email confirmation:** new accounts start with 0 credits and get `FREE_SIGNUP_CREDITS` when they open the link in the confirmation email. Each inbox gets the bonus once: "+tags" and Gmail dots count as the same inbox, and a one-way hash survives account deletion.
+- **Throwaway inboxes** are refused (built-in list, extend with `BLOCKED_EMAIL_DOMAINS`), and new signups are capped at `SIGNUPS_PER_IP_PER_DAY` (5).
+- **Cloudflare Turnstile (recommended once ads run):** create a widget in the Cloudflare dashboard (Turnstile → Add widget, your domain, Managed mode) and set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`. The signup form then shows the check, and the server verifies it.
+
+### 9. Analytics, ads and error monitoring
+- **Google Analytics 4:** `GA_MEASUREMENT_ID` (`G-…`). **Google Ads:** `GOOGLE_ADS_ID` (`AW-…`) plus the conversion labels for sign-ups and purchases (`GOOGLE_ADS_SIGNUP_LABEL`, `GOOGLE_ADS_PURCHASE_LABEL`), from Goals → Conversions → Add (website, set up manually with the Google tag). **Meta:** `META_PIXEL_ID`.
+- Nothing loads until a visitor accepts the cookie banner, which only appears once one of these is set. Events: page views, `sign_up` / `CompleteRegistration`, and `purchase` / `Purchase` with the pack value and currency.
+- Tag your ad links with `utm_source`, `utm_medium` and `utm_campaign` (Google and Meta also add click ids). Each user's first source is stored at signup; `python -m app.jobs acquisition 30` in `backend/` prints signups, confirmed users, buyers and revenue per campaign for the last 30 days.
+- **Sentry:** set `SENTRY_DSN` to get an alert for server errors. Request bodies and personal data are never sent.
+
+### 10. Your users' data
+Settings → **Your data** lets users download everything stored about them (JSON) or delete their account (password and "DELETE"). Deletion removes all their rows at once; payment records are kept without the user, as tax law requires.
+
+### 11. Try it locally with Docker + Postgres
 ```bash
 cp .env.example .env    # fill in OPENAI_API_KEY (and Stripe test keys if you want purchases)
 docker compose up --build
 # open http://localhost:8000
 ```
 
-### 8. Before launch checklist
+### 12. Before launch checklist
 - [ ] **Rotate every key that was previously committed** to this repo (Gemini API keys, LinkedIn client secret). They remain in git history.
-- [ ] Review the Terms, Privacy and Refund pages (`client/src/pages/Legal.tsx`) for your jurisdiction.
-- [ ] Set an OpenAI usage limit and Stripe email receipts.
-- [ ] Run one real purchase in Stripe test mode end to end, and one UPI payment in Razorpay test mode.
-- [ ] Send yourself a test email from Settings and check it lands in the inbox, not spam.
+- [ ] Review the Terms, Privacy and Refund pages (`client/src/pages/Legal.tsx`) for your jurisdiction, and set `COMPANY_NAME` and `SUPPORT_EMAIL`.
+- [ ] Set an OpenAI usage limit.
+- [ ] Get Paddle approved; run one sandbox purchase per currency (USD, GBP, EUR, AUD) end to end, and one UPI payment in Razorpay test mode.
+- [ ] Sign up with a new address: the confirmation email arrives (not in spam), and the free credits appear after the link.
+- [ ] Turn on Turnstile and Sentry, and set the analytics ids; accept the cookie banner and check the events in GA4 DebugView and Meta Events Manager.
+- [ ] Ask an accountant about Indian GST on export of services (LUT) and the paperwork for foreign payouts.
 
 ### Scaling notes
-* The rate limiter and market cache are in-process. With several instances, move them to Redis.
+* The rate limiter and market cache are in-process, so the Docker image runs one worker (`WEB_CONCURRENCY=1`). Each AI request is synchronous (10–60 s) and runs in that worker's thread pool, about 40 at once. Before adding workers or instances, move the limits to Redis.
 * The schema is managed by Alembic migrations (`backend/app/migrations`), applied automatically at startup (several workers are safe: Postgres uses an advisory lock). After changing `app/models.py`, run `python -m app.migrate revision "what changed"` in `backend/`, review the generated file and commit it; `tests/test_migrations.py` fails if models and migrations disagree.
-* Each AI request is synchronous (10–60 s). Increase `WEB_CONCURRENCY` or instances for more concurrent users.
 
 ---
 
