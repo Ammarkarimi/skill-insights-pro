@@ -1,35 +1,41 @@
 /*
  * Baseline legal pages required by payment processors.
- * IMPORTANT: have these reviewed for your jurisdiction before launch, and set
- * VITE_COMPANY_NAME / VITE_SUPPORT_EMAIL at build time.
+ * IMPORTANT: have these reviewed for your jurisdiction before launch, and set COMPANY_NAME and
+ * SUPPORT_EMAIL on the server (they are filled into the page at runtime).
  */
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { COMPANY_NAME, SUPPORT_EMAIL } from "@/lib/pricing";
 import CookieSettingsLink from "@/components/CookieSettingsLink";
 
 const UPDATED = "October 2026";
 
-const Shell: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="min-h-screen bg-gray-50 py-12 px-4">
-    <article className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm p-8 prose prose-slate">
-      <Link to="/" className="no-underline text-primary font-bold">
-        ← {COMPANY_NAME}
-      </Link>
-      <h1>{title}</h1>
-      <p className="text-sm text-gray-500">Last updated: {UPDATED}</p>
-      {children}
-      <hr />
-      <p>
-        Questions? Contact us at <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
-      </p>
-      <p className="text-sm">
-        <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link> · <Link to="/refunds">Refunds</Link>
-        <CookieSettingsLink prefix=" · " className="underline text-primary" />
-      </p>
-    </article>
-  </div>
-);
+const Shell: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+  }, [hash]);
+  return (
+    <div className="min-h-screen bg-gray-50 py-12 px-4">
+      <article className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm p-8 prose prose-slate">
+        <Link to="/" className="no-underline text-primary font-bold">
+          ← {COMPANY_NAME}
+        </Link>
+        <h1>{title}</h1>
+        <p className="text-sm text-gray-500">Last updated: {UPDATED}</p>
+        {children}
+        <hr />
+        <p>
+          Questions? Contact us at <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+        </p>
+        <p className="text-sm">
+          <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link> · <Link to="/refunds">Refunds</Link>
+          <CookieSettingsLink prefix=" · " className="underline text-primary" />
+        </p>
+      </article>
+    </div>
+  );
+};
 
 export const Terms = () => (
   <Shell title="Terms of Service">
@@ -51,9 +57,19 @@ export const Terms = () => (
     <h2>3. Credits and payment</h2>
     <p>
       Paid features consume prepaid credits. Prices and credit costs are shown before purchase on the Billing page.
-      Payments are processed by Stripe and, for payments in Indian rupees (UPI, cards, netbanking), by Razorpay. Rupee
-      prices include applicable taxes. Credits have no cash value, are non-transferable and do not expire while your
-      account is active. If a request fails, the credits for it are automatically returned.
+      Card, Apple Pay, Google Pay and PayPal payments in US dollars, pounds, euros and Australian dollars are handled
+      by our online reseller Paddle.com, which is the Merchant of Record for those orders; Paddle's buyer terms also
+      apply to them. Where offered, card payments may instead be processed by Stripe. Payments in Indian rupees (UPI,
+      cards, netbanking) are processed by Razorpay. Prices in pounds, euros, Australian dollars and rupees include
+      VAT, GST or other applicable taxes; prices in US dollars are before sales tax, which is added at checkout where
+      it applies. Credits have no cash value, are non-transferable and do not expire while your account is active. If
+      a request fails, the credits for it are automatically returned.
+    </p>
+    <p>
+      <strong>Your right to cancel.</strong> If you are a consumer in the UK or the EU, you normally have 14 days to
+      cancel a purchase. Credits are digital content that we add to your account straight away, so at checkout you
+      ask us to do that and acknowledge that you lose the right to cancel once you start using them. Unused packs can
+      still be refunded within 14 days, as described in our <Link to="/refunds">Refund Policy</Link>.
     </p>
     <h2>4. Acceptable use</h2>
     <p>
@@ -68,12 +84,15 @@ export const Terms = () => (
     </p>
     <h2>6. Termination</h2>
     <p>
-      You may close your account at any time by contacting us. We may suspend accounts that violate these terms.
+      You can delete your account at any time in Settings, or by contacting us. We may suspend accounts that
+      violate these terms, or that are created in bulk or with throwaway email addresses to collect free credits.
     </p>
     <h2>7. Liability</h2>
     <p>
       To the maximum extent permitted by law, the Service is provided "as is", and our total liability is limited to
-      the amount you paid us in the 12 months before the claim.
+      the amount you paid us in the 12 months before the claim. Nothing in these terms excludes or limits liability
+      that cannot be excluded or limited by law, or your rights under consumer law, including the consumer guarantees
+      under the Australian Consumer Law.
     </p>
     <h2>8. Changes</h2>
     <p>We may update these terms. We will notify you of material changes by email or in the app.</p>
@@ -85,15 +104,23 @@ export const Privacy = () => (
     <h2>What we collect</h2>
     <ul>
       <li>
-        <strong>Account data:</strong> name, email address and a securely hashed password.
+        <strong>Account data:</strong> name, email address, a securely hashed password and whether you confirmed
+        your email. We also keep a one-way hash of your email address (even after you delete your account) only to
+        make sure each inbox receives the free signup credits once.
       </li>
       <li>
         <strong>Content you submit:</strong> resumes, job descriptions, assessment answers, interview answers and chat
         messages.
       </li>
       <li>
-        <strong>Billing data:</strong> purchase history. Card, UPI and bank details are handled entirely by Stripe or
-        Razorpay and never reach our servers.
+        <strong>Billing data:</strong> purchase history, and whether you asked for your credits straight away at
+        checkout. Card, PayPal, UPI and bank details are handled entirely by Paddle, Stripe or Razorpay and never
+        reach our servers.
+      </li>
+      <li>
+        <strong>How you found us:</strong> if you arrive from an ad or another website, we note the campaign tags, ad
+        click ids and the referring page, and store them with your account when you sign up, so we can tell which
+        campaigns work. This is only kept in your browser between visits if you accept cookies.
       </li>
       <li>
         <strong>Usage data:</strong> which features you use and how many credits they consume.
@@ -101,14 +128,49 @@ export const Privacy = () => (
     </ul>
     <h2>How we use it</h2>
     <p>
-      Only to provide and improve the Service, process payments, prevent abuse and support you. We do not sell your
-      data or use it for advertising.
+      Only to provide and improve the Service, process payments, prevent abuse and support you, and, if you accept
+      cookies, to measure our own advertising. We do not sell your data, and we never share the content you submit
+      with advertisers.
     </p>
     <h2>AI processing</h2>
     <p>
       To generate results, your submitted content is sent to our AI provider, OpenAI, through their API. Under
       OpenAI's API terms, API data is not used to train their models. We ask OpenAI not to store responses.
     </p>
+    <h2>Service providers</h2>
+    <p>We use these providers to run the Service. Each only receives what it needs:</p>
+    <ul>
+      <li>OpenAI: generates results from the content you submit.</li>
+      <li>
+        Paddle (our reseller for card and PayPal payments), Stripe and Razorpay: process payments. Paddle receives your
+        email address, country and payment details when you buy.
+      </li>
+      <li>Our email provider: delivers account emails and the reminders you turn on.</li>
+      <li>
+        Cloudflare Turnstile: checks that signups come from a person, using your IP address and browser signals.
+      </li>
+      <li>Google Analytics, Google Ads and Meta: measure visits and our ads, only if you accept cookies.</li>
+      <li>Sentry: receives error reports, without the content of your requests.</li>
+      <li>Our hosting and database providers: store the data described here.</li>
+    </ul>
+    <p>
+      Some providers are in other countries, including the United States. Where the law requires it, transfers are
+      covered by safeguards such as the EU Standard Contractual Clauses and the UK International Data Transfer
+      Addendum.
+    </p>
+    <h2 id="cookies">Cookies and similar storage</h2>
+    <ul>
+      <li>
+        <strong>Always on (strictly necessary):</strong> a sign-in cookie, your choices (such as your currency and your
+        cookie choice) kept in your browser, and the payment provider's and security check's own storage when you use
+        them.
+      </li>
+      <li>
+        <strong>Only if you accept:</strong> Google Analytics, Google Ads and the Meta Pixel cookies, and the record of
+        the ad or website you came from. You can change your choice at any time with the "Cookie settings" link at
+        the bottom of this page.
+      </li>
+    </ul>
     <h2>Retention</h2>
     <ul>
       <li>Uploaded resume files are processed in memory and are not stored on our servers.</li>
@@ -172,11 +234,18 @@ export const Privacy = () => (
       </li>
       <li>Chat conversations and generated cover letters or outreach messages are not stored on our servers.</li>
       <li>Account and billing records are kept while your account is active and as required by law.</li>
+      <li>
+        When you delete your account, everything above is deleted straight away. We keep payment records (date,
+        amount, currency, pack) without your details, because tax law requires it, and the one-way email hash
+        described above.
+      </li>
     </ul>
     <h2>Your rights</h2>
     <p>
-      You can ask us to access, correct, export or delete your data at any time by emailing us. Depending on where you
-      live (for example under the GDPR or the Indian DPDP Act), you may have additional rights.
+      You can download a copy of your data or delete your account yourself, at any time, in Settings. You can also
+      email us to access, correct, export or delete your data. Depending on where you live (for example under the UK
+      GDPR, the EU GDPR, the Australian Privacy Act or the Indian DPDP Act), you may have further rights, including
+      the right to complain to your data protection authority (in the UK, the Information Commissioner's Office).
     </p>
     <h2>Security</h2>
     <p>
@@ -201,7 +270,14 @@ export const Refunds = () => (
         will restore the credits.
       </li>
       <li>
-        Refunds go back to the original payment method (card, UPI or bank account), usually within 5–10 business days.
+        Refunds go back to the original payment method (card, PayPal, UPI or bank account), usually within 5–10
+        business days. Purchases made through Paddle, our reseller, are refunded by Paddle: contact us and we will
+        arrange it, or use the link in your Paddle receipt.
+      </li>
+      <li>
+        <strong>Your legal rights:</strong> nothing in this policy limits your statutory rights. In the UK and the EU
+        you can cancel a purchase within 14 days until you start using its credits (you confirm this at checkout). In
+        Australia, the consumer guarantees under the Australian Consumer Law apply in addition to this policy.
       </li>
     </ul>
   </Shell>

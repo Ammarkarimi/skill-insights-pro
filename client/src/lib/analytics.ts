@@ -4,11 +4,12 @@
  * IDs come from the server (/api/config), so nothing loads unless they are configured.
  */
 import { loadSiteConfig, SiteConfig } from "@/lib/site";
+import { persistAttribution } from "@/lib/attribution";
+import { Consent, saveConsent, storedConsent } from "@/lib/consent";
 
+export { storedConsent };
 type Analytics = NonNullable<SiteConfig["analytics"]>;
-export type Consent = "granted" | "denied";
 
-const CONSENT_KEY = "ss_cookie_consent";
 const TRACKED_KEY = "ss_tracked_purchases";
 export const OPEN_SETTINGS_EVENT = "ss:cookie-settings";
 
@@ -27,15 +28,6 @@ let started = false;
 
 export function hasTracking(a: SiteConfig["analytics"] | undefined): boolean {
   return !!a && !!(a.ga4 || a.googleAds || a.metaPixel);
-}
-
-export function storedConsent(): Consent | null {
-  try {
-    const v = localStorage.getItem(CONSENT_KEY);
-    return v === "granted" || v === "denied" ? v : null;
-  } catch {
-    return null;
-  }
 }
 
 /** Reopens the cookie banner (for "Cookie settings" links). */
@@ -99,12 +91,9 @@ export async function initAnalytics(): Promise<void> {
 }
 
 export async function setConsent(choice: Consent): Promise<void> {
-  try {
-    localStorage.setItem(CONSENT_KEY, choice);
-  } catch {
-    /* without storage the banner shows again next visit */
-  }
+  saveConsent(choice);
   if (choice === "granted") {
+    persistAttribution();
     const config = await loadSiteConfig();
     if (config?.analytics && hasTracking(config.analytics)) start(config.analytics);
   } else if (started) {
