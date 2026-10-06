@@ -153,7 +153,7 @@ docker compose up --build
 
 ### Scaling notes
 * The rate limiter and market cache are in-process. With several instances, move them to Redis.
-* Tables are created automatically at startup. Adopt Alembic migrations before changing the schema.
+* The schema is managed by Alembic migrations (`backend/app/migrations`), applied automatically at startup (several workers are safe: Postgres uses an advisory lock). After changing `app/models.py`, run `python -m app.migrate revision "what changed"` in `backend/`, review the generated file and commit it; `tests/test_migrations.py` fails if models and migrations disagree.
 * Each AI request is synchronous (10–60 s). Increase `WEB_CONCURRENCY` or instances for more concurrent users.
 
 ---

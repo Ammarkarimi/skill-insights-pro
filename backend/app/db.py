@@ -35,9 +35,10 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 def init_db() -> None:
-    from . import models  # noqa: F401  (register tables)
+    """Create or upgrade the schema with the Alembic migrations in app/migrations."""
+    from . import migrate
 
-    Base.metadata.create_all(engine)
+    migrate.upgrade(engine)
 
 
 def get_db() -> Iterator[Session]:
