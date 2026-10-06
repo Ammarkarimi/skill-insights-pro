@@ -26,6 +26,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const ForgotPassword = lazy(() => import("./pages/PasswordReset").then((m) => ({ default: m.ForgotPassword })));
 const ResetPassword = lazy(() => import("./pages/PasswordReset").then((m) => ({ default: m.ResetPassword })));
 const Unsubscribe = lazy(() => import("./pages/PasswordReset").then((m) => ({ default: m.Unsubscribe })));
+const VerifyEmail = lazy(() => import("./pages/PasswordReset").then((m) => ({ default: m.VerifyEmail })));
 const PublicPortfolio = lazy(() => import("./pages/PublicPortfolio"));
 const PathRecommendation = lazy(() => import("./pages/PathRecommendation"));
 const JobAssessment = lazy(() => import("./pages/JobAssessment"));
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/refunds" element={<Refunds />} />

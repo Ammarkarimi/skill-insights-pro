@@ -161,6 +161,75 @@ export const ResetPassword: React.FC = () => {
   );
 };
 
+interface VerifyResult {
+  verified: boolean;
+  creditsAdded: number;
+  alreadyClaimed: boolean;
+}
+
+export const VerifyEmail: React.FC = () => {
+  const [params] = useSearchParams();
+  const token = params.get("token") ?? "";
+  const { user, refresh } = useAuth();
+  const [result, setResult] = useState<VerifyResult | null>(null);
+  const [error, setError] = useState(token ? "" : "This link is incomplete. Open the full link from your email.");
+  const started = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!token || started.current) return;
+    started.current = true; // the effect runs twice in development; verify once
+    api
+      .post<VerifyResult>("/api/auth/verify", { token })
+      .then(async (r) => {
+        setResult(r.data);
+        await refresh();
+      })
+      .catch((err) => setError(apiErrorMessage(err)));
+  }, [token, refresh]);
+
+  if (error) {
+    return (
+      <Shell title="We could not confirm your email" description={error}>
+        <CardFooter className="justify-center">
+          <Button asChild>
+            <Link to={user ? "/home" : "/login"}>{user ? "Back to the app" : "Sign in to get a new link"}</Link>
+          </Button>
+        </CardFooter>
+      </Shell>
+    );
+  }
+  if (!result) {
+    return (
+      <Shell title="Confirming your email" description="One moment...">
+        <CardContent className="flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </CardContent>
+      </Shell>
+    );
+  }
+  return (
+    <Shell
+      title="Your email is confirmed"
+      description={
+        result.creditsAdded
+          ? `${result.creditsAdded} free credits have been added to your account.`
+          : result.alreadyClaimed
+            ? "This inbox already received free credits on another account, so none were added this time."
+            : "Thanks for confirming."
+      }
+    >
+      <CardContent className="flex justify-center">
+        <CheckCircle2 className="h-10 w-10 text-green-600" />
+      </CardContent>
+      <CardFooter className="justify-center">
+        <Button asChild>
+          <Link to={user ? "/home" : "/login"}>{user ? "Start practising" : "Sign in"}</Link>
+        </Button>
+      </CardFooter>
+    </Shell>
+  );
+};
+
 export const Unsubscribe: React.FC = () => {
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";

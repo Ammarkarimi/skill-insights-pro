@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import { apiErrorMessage } from "@/lib/api";
+import { useSiteConfig } from "@/lib/site";
+import Turnstile from "@/components/Turnstile";
 
 const AuthPage: React.FC<{ mode: "login" | "register" }> = ({ mode }) => {
   const { login, register, pricing } = useAuth();
@@ -21,7 +23,12 @@ const AuthPage: React.FC<{ mode: "login" | "register" }> = ({ mode }) => {
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [captcha, setCaptcha] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const site = useSiteConfig();
   const isRegister = mode === "register";
+  const siteKey = isRegister ? site?.turnstileSiteKey : "";
+  const freeCredits = site?.freeSignupCredits ?? pricing?.freeSignupCredits ?? 10;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,13 +41,18 @@ const AuthPage: React.FC<{ mode: "login" | "register" }> = ({ mode }) => {
       setError("Please accept the Terms of Service and Privacy Policy.");
       return;
     }
+    if (siteKey && !captcha) {
+      setError("Please complete the security check.");
+      return;
+    }
     setSubmitting(true);
     try {
-      if (isRegister) await register(email.trim(), password, name.trim());
+      if (isRegister) await register(email.trim(), password, name.trim(), captcha);
       else await login(email.trim(), password);
       navigate(from, { replace: true });
     } catch (err) {
       setError(apiErrorMessage(err));
+      if (siteKey) setCaptchaReset((n) => n + 1); // each token works once
     } finally {
       setSubmitting(false);
     }
@@ -57,7 +69,9 @@ const AuthPage: React.FC<{ mode: "login" | "register" }> = ({ mode }) => {
             <CardTitle className="text-xl">{isRegister ? "Create your account" : "Welcome back"}</CardTitle>
             <CardDescription>
               {isRegister
-                ? `Get ${pricing?.freeSignupCredits ?? 10} free credits to try every feature.`
+                ? site?.requireEmailVerification === false
+                  ? `Get ${freeCredits} free credits to try every feature.`
+                  : `Confirm your email to get ${freeCredits} free credits and try every feature.`
                 : "Sign in to continue your career journey."}
             </CardDescription>
           </CardHeader>
@@ -125,6 +139,7 @@ const AuthPage: React.FC<{ mode: "login" | "register" }> = ({ mode }) => {
                 </span>
               </label>
             )}
+            {siteKey && <Turnstile siteKey={siteKey} onToken={setCaptcha} resetKey={captchaReset} onError={setError} />}
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button type="submit" className="w-full" disabled={submitting}>

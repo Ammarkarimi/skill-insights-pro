@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/context/AuthContext";
+import VerifyEmailBanner from "@/components/VerifyEmailBanner";
 import { fetchReadiness, READINESS_CHANGED_EVENT } from "@/lib/readiness";
 
 interface NavItemProps {
@@ -226,6 +227,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       <main className={cn("flex-1 min-w-0 transition-all duration-300 p-4 sm:p-6", isMobile && isMenuOpen ? "blur-sm" : "")}>
         {isMobile && isMenuOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30" onClick={closeMenu} />}
+        <VerifyEmailBanner />
         {children}
       </main>
     </div>

@@ -1,12 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, CREDITS_EVENT, Pricing, UNAUTHORIZED_EVENT, User } from "@/lib/api";
+import { getAttribution } from "@/lib/attribution";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   pricing: Pricing | null;
   login: (email: string, password: string) => Promise<User>;
-  register: (email: string, password: string, name: string) => Promise<User>;
+  register: (email: string, password: string, name: string, turnstileToken?: string) => Promise<User>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   cost: (action: string) => number;
@@ -58,8 +59,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return data;
   }, []);
 
-  const register = useCallback(async (email: string, password: string, name: string) => {
-    const { data } = await api.post<User>("/api/auth/register", { email, password, name });
+  const register = useCallback(async (email: string, password: string, name: string, turnstileToken = "") => {
+    const { data } = await api.post<User>("/api/auth/register", {
+      email,
+      password,
+      name,
+      turnstile_token: turnstileToken,
+      acquisition: getAttribution(),
+    });
     setUser(data);
     return data;
   }, []);
