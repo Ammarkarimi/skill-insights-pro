@@ -68,6 +68,8 @@ export interface CreditPack {
   price_cents: number;
   description: string;
   highlight: boolean;
+  /** Local prices for Paddle, in minor units per currency ("usd", "gbp", "eur", "aud"). */
+  prices?: Record<string, number>;
 }
 
 export interface Pricing {
@@ -76,6 +78,9 @@ export interface Pricing {
   costs: Record<string, number>;
   freeSignupCredits: number;
   paymentsEnabled: boolean;
+  /** Who takes card payments: Paddle (local currencies, tax handled) or Stripe. */
+  cardProvider?: "paddle" | "stripe" | null;
+  paddle?: { enabled: boolean; environment: string; clientToken: string; currencies: string[]; taxInclusive: string[] };
   /** Rupee packs paid through Razorpay (UPI, cards, netbanking). */
   inr?: { enabled: boolean; currency: "inr"; packs: CreditPack[]; keyId: string };
 }

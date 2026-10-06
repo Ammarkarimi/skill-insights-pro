@@ -7,6 +7,7 @@
   import { formatMoney } from "@/lib/api"
   import { COMPANY_NAME, SUPPORT_EMAIL } from "@/lib/pricing"
   import { usePayCurrency } from "@/lib/currency"
+  import CurrencySwitch from "@/components/CurrencySwitch"
   import {
     Menu,
     X,
@@ -314,20 +315,12 @@
               more. Credits never expire, and failed requests are never charged.
             </p>
           </div>
-          {pay.showSwitch && (
-            <div className="flex justify-center mb-6">
-              <div className="inline-flex rounded-lg border bg-white p-1" role="group" aria-label="Currency">
-                {([["default", (pricing?.currency ?? "usd").toUpperCase()], ["inr", "INR (UPI)"]] as const).map(([value, label]) => (
-                  <button
-                    key={value}
-                    onClick={() => pay.set(value)}
-                    aria-pressed={pay.current === value}
-                    className={`rounded-md px-4 py-1.5 text-sm ${pay.current === value ? "bg-indigo-600 text-white" : "text-gray-700"}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+          {(pay.showSwitch || pay.taxNote) && (
+            <div className="flex flex-col items-center gap-2 mb-6">
+              {pay.showSwitch && (
+                <CurrencySwitch options={pay.options} current={pay.current} onChange={pay.set} activeClass="bg-indigo-600 text-white" />
+              )}
+              {pay.taxNote && <span className="text-xs text-gray-500">{pay.taxNote}</span>}
             </div>
           )}
           <div className={`grid grid-cols-1 gap-6 mx-auto px-4 ${pay.packs.length > 3 ? "sm:grid-cols-2 lg:grid-cols-4 max-w-6xl" : "md:grid-cols-3 max-w-5xl"}`}>
@@ -339,7 +332,7 @@
                 {pack.highlight && <span className="text-xs font-semibold text-indigo-600 mb-2">MOST POPULAR</span>}
                 <h3 className="text-xl font-bold">{pack.name}</h3>
                 <p className="text-gray-500 text-sm mb-4">{pack.description}</p>
-                <div className="text-4xl font-bold mb-1">{formatMoney(pack.price_cents, pay.currency)}</div>
+                <div className="text-4xl font-bold mb-1">{formatMoney(pack.cents, pay.currency)}</div>
                 <div className="text-gray-600 mb-6">{pack.credits} credits</div>
                 <Button asChild className="mt-auto" variant={pack.highlight ? "default" : "outline"}>
                   <Link to={user ? "/billing" : "/register"}>{user ? "Buy credits" : "Get started"}</Link>
