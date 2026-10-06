@@ -13,6 +13,7 @@ import { api, apiErrorMessage, formatMoney } from "@/lib/api";
 import { ACTION_LABELS } from "@/lib/pricing";
 import { usePayCurrency } from "@/lib/currency";
 import { payWithPaddle } from "@/lib/paddle";
+import { trackPurchase } from "@/lib/analytics";
 import { payWithRazorpay, RazorpayOrder } from "@/lib/razorpay";
 import { cn } from "@/lib/utils";
 import CurrencySwitch from "@/components/CurrencySwitch";
@@ -84,8 +85,8 @@ const Billing: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Hook for purchase tracking (analytics and ad conversions).
-  const onPurchased = (_data: Confirmed) => undefined;
+  // Analytics and ad conversions (only after cookie consent; once per payment).
+  const onPurchased = (data: Confirmed) => trackPurchase(data);
 
   const buy = async (packId: string) => {
     if (needsConsent && !consent) {

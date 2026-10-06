@@ -6,6 +6,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { COMPANY_NAME, SUPPORT_EMAIL } from "@/lib/pricing";
+import CookieSettingsLink from "@/components/CookieSettingsLink";
 
 const UPDATED = "October 2026";
 
@@ -24,6 +25,7 @@ const Shell: React.FC<{ title: string; children: React.ReactNode }> = ({ title, 
       </p>
       <p className="text-sm">
         <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link> · <Link to="/refunds">Refunds</Link>
+        <CookieSettingsLink prefix=" · " className="underline text-primary" />
       </p>
     </article>
   </div>

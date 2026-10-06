@@ -18,4 +18,11 @@ def site_config(response: Response) -> dict:
         "freeSignupCredits": s.free_signup_credits,
         "requireEmailVerification": s.require_email_verification,
         "turnstileSiteKey": s.turnstile_site_key if s.turnstile_enabled else "",
+        "analytics": {
+            "ga4": s.ga_measurement_id,
+            "googleAds": s.google_ads_id,
+            "googleAdsSignupLabel": s.google_ads_signup_label,
+            "googleAdsPurchaseLabel": s.google_ads_purchase_label,
+            "metaPixel": s.meta_pixel_id,
+        },
     }

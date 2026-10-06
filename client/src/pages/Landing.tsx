@@ -8,6 +8,7 @@
   import { COMPANY_NAME, SUPPORT_EMAIL } from "@/lib/pricing"
   import { usePayCurrency } from "@/lib/currency"
   import CurrencySwitch from "@/components/CurrencySwitch"
+  import CookieSettingsLink from "@/components/CookieSettingsLink"
   import {
     Menu,
     X,
@@ -453,6 +454,7 @@
                   <li>
                     <Link to="/refunds">Refund Policy</Link>
                   </li>
+                  <CookieSettingsLink className="text-left hover:underline" asListItem />
                 </ul>
               </div>
             </div>

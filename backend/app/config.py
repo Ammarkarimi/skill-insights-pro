@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from typing import Literal
 
@@ -151,6 +152,13 @@ class Settings(BaseSettings):
     signups_per_ip_per_day: int = 5
     blocked_email_domains: str = ""  # comma separated, added to the built-in disposable list
 
+    # Analytics and ad conversion tracking. Nothing loads until the visitor accepts cookies.
+    ga_measurement_id: str = ""  # Google Analytics 4: G-XXXXXXX
+    google_ads_id: str = ""  # AW-XXXXXXXXX
+    google_ads_signup_label: str = ""  # conversion label for sign-ups
+    google_ads_purchase_label: str = ""  # conversion label for purchases
+    meta_pixel_id: str = ""  # digits only
+
     # Limits
     max_upload_mb: int = 5
     max_job_match_resumes: int = 10
@@ -173,6 +181,16 @@ class Settings(BaseSettings):
         if isinstance(v, str) and v.strip():
             return json.loads(v)
         return v or list(DEFAULT_INR_PACKS)
+
+    @field_validator("ga_measurement_id", "google_ads_id", "google_ads_signup_label",
+                     "google_ads_purchase_label", "meta_pixel_id")
+    @classmethod
+    def _tracking_id(cls, v: str) -> str:
+        # These end up in script URLs in the browser: allow only the characters real ids use.
+        v = (v or "").strip()
+        if v and not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", v):
+            raise ValueError("tracking ids may only contain letters, digits, '-' and '_'")
+        return v
 
     @field_validator("action_costs", mode="before")
     @classmethod

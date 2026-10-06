@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiErrorMessage } from "@/lib/api";
 import { useSiteConfig } from "@/lib/site";
 import Turnstile from "@/components/Turnstile";
+import { trackSignUp } from "@/lib/analytics";
 
 const AuthPage: React.FC<{ mode: "login" | "register" }> = ({ mode }) => {
   const { login, register, pricing } = useAuth();
@@ -47,8 +48,10 @@ const AuthPage: React.FC<{ mode: "login" | "register" }> = ({ mode }) => {
     }
     setSubmitting(true);
     try {
-      if (isRegister) await register(email.trim(), password, name.trim(), captcha);
-      else await login(email.trim(), password);
+      if (isRegister) {
+        await register(email.trim(), password, name.trim(), captcha);
+        trackSignUp();
+      } else await login(email.trim(), password);
       navigate(from, { replace: true });
     } catch (err) {
       setError(apiErrorMessage(err));

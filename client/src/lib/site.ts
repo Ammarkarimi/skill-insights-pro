@@ -7,6 +7,13 @@ export interface SiteConfig {
   freeSignupCredits: number;
   requireEmailVerification: boolean;
   turnstileSiteKey: string;
+  analytics?: {
+    ga4: string;
+    googleAds: string;
+    googleAdsSignupLabel: string;
+    googleAdsPurchaseLabel: string;
+    metaPixel: string;
+  };
 }
 
 let pending: Promise<SiteConfig | null> | null = null;

@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { AuthProvider } from "@/context/AuthContext";
 import RequireAuth from "@/components/RequireAuth";
 import CreditsWatcher from "@/components/CreditsWatcher";
+import CookieConsent from "@/components/CookieConsent";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 
@@ -72,6 +73,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <CreditsWatcher />
+        <CookieConsent />
         <Suspense fallback={<Fallback />}>
           <Routes>
             <Route path="/" element={<Landing />} />
