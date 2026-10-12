@@ -107,10 +107,15 @@ Optional: `OPENAI_MODEL`, `OPENAI_MODEL_FAST`, `OPENAI_REASONING_EFFORT`, `CURRE
 
 `VITE_COMPANY_NAME` and `VITE_SUPPORT_EMAIL` (Docker build args) still work as fallbacks, but the server settings above take precedence.
 
-### 2. Example: Render
-1. Create a **PostgreSQL** instance and copy its *Internal Database URL*.
-2. Create a **Web Service** from this repo with runtime **Docker**. Add the env vars above, with `DATABASE_URL` set to the Postgres URL.
-3. Set the health check path to `/api/health`.
+### 2. Deploy on Render (Blueprint)
+[`render.yaml`](render.yaml) creates everything in one go: a Docker web service and a managed Postgres database in Frankfurt (EU data residency for UK and EU customers).
+1. In the [Render dashboard](https://dashboard.render.com), choose **New > Blueprint**, connect this GitHub repository and pick the branch to deploy.
+2. Fill in the values it asks for: `OPENAI_API_KEY`, `SUPPORT_EMAIL`, `COMPANY_NAME` and the SMTP settings. `JWT_SECRET`, `CRON_SECRET` and `DATABASE_URL` are generated for you.
+3. Click **Apply**. The first build takes a few minutes; migrations run at startup and the health check is `/api/health`.
+4. The app uses its `https://<name>.onrender.com` address until you add a custom domain (**Settings > Custom Domains**); then set `APP_URL` to it.
+5. Add payments, Turnstile, analytics and Sentry keys later under **Environment** (each change redeploys).
+
+Reminder emails run inside the web service every hour (`RUN_SCHEDULER`, on by default in production), so no separate cron job is needed. Other hosts work the same way with the Docker image and the variables above.
 
 ### 3. Paddle (recommended for UK, US, EU and Australian buyers)
 Paddle is the **merchant of record**: it sells the credits to the buyer on your behalf, and charges and files UK VAT, EU VAT, Australian GST and US sales tax. It accepts sellers based in India and pays out monthly.
@@ -151,7 +156,7 @@ Shown next to the card packs when configured. Visitors in India see rupee prices
 ### 7. Email (signup confirmation, password reset, reminders)
 1. Pick any SMTP provider (Amazon SES, Postmark, SendGrid, Mailgun, Resend, or Gmail with an app password for testing) and verify your sending domain with **SPF and DKIM** so emails reach the inbox.
 2. Set `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` (for example `SkillSphere <hello@yourdomain.com>`) and `SMTP_SECURITY` (`starttls`, `ssl` for port 465, or `none`).
-3. Reminders are opt-in. Run the reminders job **every hour** (it sends at each user's chosen local hour, at most one daily nudge and a Monday summary, and never twice):
+3. Reminders are opt-in. In production the web service runs the reminders job **every hour** by itself (it sends at each user's chosen local hour, at most one daily nudge and a Monday summary, and never twice). To use an external scheduler instead, set `RUN_SCHEDULER=false` and call it hourly:
    - **Any cron service** (Render Cron Job, GitHub Actions, cron-job.org): `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://YOUR_DOMAIN/api/internal/cron/reminders`
    - **Or on a host with cron:** `python -m app.jobs reminders` in the backend directory.
 4. Without SMTP outside production, emails are written to the server log instead, so you can try signup confirmation and password reset locally (copy the link from the log).

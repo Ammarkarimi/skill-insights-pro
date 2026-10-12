@@ -7,7 +7,7 @@ import re
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -80,7 +80,8 @@ DEFAULT_COSTS: dict[str, int] = {
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore",
+                                      populate_by_name=True)
 
     environment: Literal["development", "production", "test"] = "development"
     app_name: str = "SkillSphere"
@@ -88,7 +89,9 @@ class Settings(BaseSettings):
     company_name: str = ""  # legal name of the business; defaults to APP_NAME
     support_email: str = ""
     # Public URL of the deployed app, used for Stripe redirect URLs.
-    app_url: str = "http://localhost:8080"
+    # Falls back to the URL Render gives the service (RENDER_EXTERNAL_URL) when APP_URL is not set.
+    app_url: str = Field(default="http://localhost:8080",
+                         validation_alias=AliasChoices("APP_URL", "RENDER_EXTERNAL_URL"))
     # Extra origins allowed by CORS (only needed when frontend and API are on different hosts).
     cors_origins: str = ""
 
@@ -146,6 +149,9 @@ class Settings(BaseSettings):
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
     # Shared secret for the hourly reminders job (POST /api/internal/cron/reminders).
     cron_secret: str = ""
+    # Run the hourly reminders inside the web app (production only). Turn off when an external
+    # cron calls the endpoint or `python -m app.jobs reminders` instead.
+    run_scheduler: bool = True
 
     # Signup protection: free credits only after the email is verified, optional Cloudflare
     # Turnstile on the signup form, and a daily cap on signups per IP address.

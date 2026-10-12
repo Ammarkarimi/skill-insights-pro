@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,6 +14,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from . import scheduler
 from .config import Settings, get_settings
 from .db import SessionLocal, init_db
 from .routers import (
@@ -66,8 +68,14 @@ async def lifespan(app: FastAPI):
         settings.validate_for_production()
     init_db()
     log.info("SkillSphere started (env=%s, payments=%s, live market data=%s)",
-             settings.environment, settings.payments_enabled, settings.adzuna_enabled)
+             settings.environment, settings.card_provider, settings.adzuna_enabled)
+    job = None
+    if settings.is_production and settings.run_scheduler and settings.email_enabled:
+        job = asyncio.create_task(scheduler.loop())
+        log.info("Hourly reminders scheduler started")
     yield
+    if job is not None:
+        job.cancel()
 
 
 def create_app() -> FastAPI:
